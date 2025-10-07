@@ -62,8 +62,8 @@ export default function PanelPage() {
     return null;
   }
 
-  // Calculate total earnings
-  const calculatedEarnings = totalEarnings ?? ((links.reduce((sum, link) => sum + link.clicks, 0)) * (earningPerClick ?? 0.02));
+  // Toplam kazancı kullanıcıdan (earned_balance) al; yoksa backend stats veya son çare olarak clicks*rate
+  const calculatedEarnings = (user?.earned_balance ?? undefined) ?? totalEarnings ?? ((links.reduce((sum, link) => sum + link.clicks, 0)) * (earningPerClick ?? 0.02));
 
   // Use backend-provided trend; fallback to empty
   const clickData = (trend || []).map(d => ({ date: d.date, clicks: d.clicks }));

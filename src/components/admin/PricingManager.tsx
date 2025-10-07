@@ -11,7 +11,7 @@ export default function PricingManager() {
   const { token } = useAppSelector((s) => s.auth);
   const [show, setShow] = useState(false);
   const [audFilter, setAudFilter] = useState<"advertiser" | "user">("advertiser");
-  const [newPrice, setNewPrice] = useState({ audience: "advertiser" as "user" | "advertiser", country: "Türkiye", rates: { google_review: 0, website_traffic: 0, video_views: 0, like_follow: 0 } });
+  const [newPrice, setNewPrice] = useState({ audience: "advertiser" as "user" | "advertiser", country: "TR", rates: { google_review: 0, website_traffic: 0, video_views: 0, like_follow: 0 } });
   const [saving, setSaving] = useState(false);
 
   return (
@@ -48,7 +48,7 @@ export default function PricingManager() {
             <div className="p-6 space-y-6">
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                 <div className="space-y-2"><label className="block text-xs text-slate-600 dark:text-slate-300">Hedef</label><select value={newPrice.audience} onChange={(e)=>setNewPrice((p)=>({ ...p, audience: e.target.value as any }))} className="w-full h-11 rounded-xl border border-black/10 dark:border-white/10 bg-white dark:bg-slate-800 px-3 text-sm text-slate-900 dark:text-white"><option value="user">User</option><option value="advertiser">Advertiser</option></select></div>
-                <div className="space-y-2"><label className="block text-xs text-slate-600 dark:text-slate-300">Ülke</label><input value={newPrice.country} onChange={(e)=>setNewPrice((p)=>({ ...p, country: e.target.value }))} className="w-full h-11 rounded-xl border border-black/10 dark:border-white/10 bg-white dark:bg-slate-800 px-3 text-sm text-slate-900 dark:text-white" placeholder="Türkiye"/></div>
+                <div className="space-y-2"><label className="block text-xs text-slate-600 dark:text-slate-300">Ülke (ISO-2)</label><input value={newPrice.country} onChange={(e)=>setNewPrice((p)=>({ ...p, country: e.target.value.toUpperCase().slice(0,2) }))} className="w-full h-11 rounded-xl border border-black/10 dark:border-white/10 bg-white dark:bg-slate-800 px-3 text-sm text-slate-900 dark:text-white uppercase tracking-wider" placeholder="TR" maxLength={2}/><p className="text-[11px] text-slate-500 dark:text-slate-400">Örn: TR, AZ, US (2 harf)</p></div>
               </div>
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">{(["google_review","website_traffic","video_views","like_follow"] as const).map((k)=>(<div key={k} className="rounded-xl border border-black/10 dark:border-white/10 bg-slate-50/60 dark:bg-slate-800/40 p-4 space-y-2"><div className="text-xs text-slate-600 dark:text-slate-300 capitalize">{k.replace("_"," ")} (₺/1000)</div><input type="number" min={0} value={(newPrice.rates as any)[k]} onChange={(e)=>setNewPrice((p)=>({ ...p, rates: { ...p.rates, [k]: Number(e.target.value) } }))} className="w-full h-11 rounded-xl border border-black/10 dark:border-white/10 bg-white dark:bg-slate-800 px-3 text-sm text-slate-900 dark:text-white"/></div>))}</div>
               <div className="flex items-center justify-between"><p className="text-xs text-slate-600 dark:text-slate-400">Fiyatlar 1000 tıklama başınadır.</p><Button onClick={async()=>{try{setSaving(true);await dispatch<any>(upsertPricingThunk({entries:[...(pricing||[]),{...newPrice,unit:"per_1000"}]}));await dispatch(fetchPricingThunk());setShow(false);}catch(e){console.error(e);}finally{setSaving(false);}}} disabled={saving}>{saving?"Kaydediliyor...":"Kaydet"}</Button></div>
