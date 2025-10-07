@@ -40,7 +40,12 @@ type LinksState = {
       referer: string;
       clickedAt: string;
     }>;
+    trend: Array<{
+      date: string;
+      clicks: number;
+    }>;
   };
+  trend?: Array<{ date: string; clicks: number }>;
 };
 
 const initialState: LinksState = {
@@ -49,7 +54,7 @@ const initialState: LinksState = {
   status: "idle",
 };
 
-const API_URL = process.env.NEXT_PUBLIC_API_URL || "http://localhost:5050";
+const API_URL = process.env.NEXT_PUBLIC_API_URL;
 
 // Fetch user's links
 export const fetchLinksThunk = createAsyncThunk(
@@ -229,6 +234,34 @@ export const fetchStatsThunk = createAsyncThunk(
   }
 );
 
+// Fetch daily trend
+export const fetchTrendThunk = createAsyncThunk(
+  "links/fetchTrend",
+  async ({ token, days = 30 }: { token: string; days?: number }, { rejectWithValue, dispatch }) => {
+    try {
+      let res = await fetch(`${API_URL}/api/links/trend?days=${days}`, {
+        headers: { Authorization: `Bearer ${token}` },
+      });
+      if (res.status === 401) {
+        try {
+          await dispatch<any>(refreshAccessTokenThunk());
+          const newToken = (localStorage.getItem("token") as string) || token;
+          res = await fetch(`${API_URL}/api/links/trend?days=${days}`, { headers: { Authorization: `Bearer ${newToken}` } });
+        } catch {}
+        if (res.status === 401) {
+          dispatch(handleUnauthorized());
+          return rejectWithValue("Unauthorized");
+        }
+      }
+      if (!res.ok) throw new Error("Trend alınamadı");
+      const data = await res.json();
+      return data.trend as Array<{ date: string; clicks: number }>;
+    } catch (error: any) {
+      return rejectWithValue(error.message);
+    }
+  }
+);
+
 // Fetch link analytics
 export const fetchLinkAnalyticsThunk = createAsyncThunk(
   "links/fetchLinkAnalytics",
@@ -253,6 +286,48 @@ export const fetchLinkAnalyticsThunk = createAsyncThunk(
       return data;
     } catch (error: any) {
       return rejectWithValue(error.message);
+    }
+  }
+);
+
+// Verify recaptcha via app route
+export const verifyRecaptchaThunk = createAsyncThunk(
+  "links/verifyRecaptcha",
+  async (payload: { token: string }, { rejectWithValue }) => {
+    try {
+      const res = await fetch("/api/verify-recaptcha", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ token: payload.token }),
+        cache: "no-store",
+      });
+      const data = await res.json();
+      if (!res.ok || !data?.success) {
+        throw new Error(data?.error || "Doğrulama başarısız");
+      }
+      return data as any;
+    } catch (e: any) {
+      return rejectWithValue(e.message);
+    }
+  }
+);
+
+// Issue signed token for short link
+export const issueTokenThunk = createAsyncThunk(
+  "links/issueToken",
+  async (payload: { slug: string }, { rejectWithValue }) => {
+    try {
+      const API_URL = process.env.NEXT_PUBLIC_API_URL;
+      const res = await fetch(`${API_URL}/api/links/issue-token`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ slug: payload.slug }),
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data?.error || "Token üretilemedi");
+      return data as { token: string; targetUrl: string; exp?: number };
+    } catch (e: any) {
+      return rejectWithValue(e.message);
     }
   }
 );
@@ -375,6 +450,9 @@ const linksSlice = createSlice({
       .addCase(fetchStatsThunk.rejected, (state, action) => {
         state.status = "failed";
         state.error = action.error.message;
+      })
+      .addCase(fetchTrendThunk.fulfilled, (state, action) => {
+        state.trend = action.payload;
       })
       
       // Fetch link analytics

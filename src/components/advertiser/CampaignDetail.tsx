@@ -3,7 +3,7 @@
 import { Button } from "@/components/ui/Button";
 import { useAppDispatch, useAppSelector } from "@/store";
 import { fetchMeThunk } from "@/store/slices/authSlice";
-import { fetchCampaignsThunk } from "@/store/slices/campaignsSlice";
+import { fetchCampaignsThunk, endCampaignThunk } from "@/store/slices/campaignsSlice";
 
 interface CampaignDetailProps {
   campaign: {
@@ -36,9 +36,8 @@ export default function CampaignDetail({ campaign, onClose }: CampaignDetailProp
 
   const endCampaign = async () => {
     if (!token) return;
-    const API_URL = process.env.NEXT_PUBLIC_API_URL || "http://localhost:5050";
-    const res = await fetch(`${API_URL}/api/campaigns/${campaign.id}/end`, { method: "POST", headers: { Authorization: `Bearer ${token}` } });
-    if (res.ok) {
+    const r:any = await dispatch<any>(endCampaignThunk(campaign.id));
+    if (r.meta.requestStatus === 'fulfilled') {
       try { await dispatch<any>(fetchMeThunk()); } catch {}
       try { await dispatch<any>(fetchCampaignsThunk()); } catch {}
       onClose();

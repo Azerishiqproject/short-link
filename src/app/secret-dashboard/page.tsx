@@ -4,23 +4,27 @@ import { Section } from "@/components/ui/Section";
 import { BlurSpot } from "@/components/ui/BlurSpot";
 import { Card } from "../../components/ui/Card";
 import { AdminSidebar, UsersList, PricingManager, PaymentsManager } from "@/components/admin";
+import SidebarNav from "@/components/panel/SidebarNav";
+import WithdrawalManager from "@/components/admin/WithdrawalManager";
 import { useEffect, useMemo, useState } from "react";
 import { useAppDispatch, useAppSelector } from "@/store";
 import { useRouter } from "next/navigation";
 import { logout } from "@/store/slices/authSlice";
-import { fetchPricingThunk } from "@/store/slices/campaignsSlice";
+import { fetchPricingThunk, fetchAdminUserCampaignSummaryThunk } from "@/store/slices/campaignsSlice";
+import { fetchAllPaymentsThunk } from "@/store/slices/paymentsSlice";
 
 type ApiUser = { id?: string; _id?: string; email: string; name?: string; role: string; createdAt?: string };
 
 export default function SecretDashboard() {
   const { token, user, hydrated } = useAppSelector((s) => s.auth);
+  const { allPayments } = useAppSelector((s) => s.payments);
   const dispatch = useAppDispatch();
   const router = useRouter();
   const [users, setUsers] = useState<ApiUser[]>([]);
   const [detailUser, setDetailUser] = useState<ApiUser | null>(null);
   const [detailData, setDetailData] = useState<any | null>(null);
   const [detailLoading, setDetailLoading] = useState(false);
-  const [activeTab, setActiveTab] = useState<"users" | "pricing" | "payments">("users");
+  const [activeTab, setActiveTab] = useState<"users" | "pricing" | "payments" | "withdrawals">("users");
 
   useEffect(() => {
     console.log("Admin dashboard effect - hydrated:", hydrated, "token:", !!token, "user:", user);
@@ -34,12 +38,25 @@ export default function SecretDashboard() {
       router.replace("/");
       return;
     }
-    // Users fetched in UsersList via Redux
+    // Users/Config fetched in Redux
     dispatch(fetchPricingThunk());
+    // Preload all payments for admin views (used in user detail)
+    dispatch<any>(fetchAllPaymentsThunk()).catch(()=>{});
   }, [hydrated, token, user?.role, router, dispatch]);
 
   const sidebar = useMemo(() => (
-    <AdminSidebar active={activeTab} onChange={(t: "users" | "pricing" | "payments") => setActiveTab(t)} onLogout={() => { dispatch(logout()); router.push("/"); }} />
+    <SidebarNav
+      items={([
+        { key: "users", label: "Kullanıcılar", icon: <svg className='w-4 h-4' viewBox="0 0 24 24" fill="none" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M17 20h5v-2a4 4 0 00-4-4h-1M9 20H4v-2a4 4 0 014-4h1m8-4a4 4 0 11-8 0 4 4 0 018 0z"/></svg> },
+        { key: "pricing", label: "Fiyatlandırma", icon: <svg className='w-4 h-4' viewBox="0 0 24 24" fill="none" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-10v.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"/></svg> },
+        { key: "payments", label: "Ödemeler", icon: <svg className='w-4 h-4' viewBox="0 0 24 24" fill="none" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M17 9V7a2 2 0 00-2-2H5a2 2 0 00-2 2v2m14 0H3m14 0v6a2 2 0 01-2 2H5a2 2 0 01-2-2V9m16 0h2m-2 0v6a2 2 0 002 2h0a2 2 0 002-2V9h-2"/></svg> },
+        { key: "withdrawals", label: "Çekimler", icon: <svg className='w-4 h-4' viewBox="0 0 24 24" fill="none" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-10v.01M5 12H3m18 0h-2"/></svg> },
+      ] as { key: string; label: string; icon: React.ReactElement }[])}
+      activeKey={activeTab}
+      onSelect={(k)=>setActiveTab(k as any)}
+      onSettings={()=>setActiveTab('users') /* admin has separate settings elsewhere */}
+      onLogout={() => { dispatch(logout()); router.push("/"); }}
+    />
   ), [dispatch, router, activeTab]);
 
   if (!hydrated || !token || user?.role !== "admin") {
@@ -48,23 +65,30 @@ export default function SecretDashboard() {
 
   return (
     <div className="relative min-h-screen">
-      {/* Background layers */}
-      <div className="absolute inset-0 -z-20 bg-gradient-to-b from-[#F8FBFF] via-white to-[#F5F7FB] dark:from-slate-900 dark:via-slate-950 dark:to-slate-900" />
-      <div className="pointer-events-none absolute inset-0 -z-10 opacity-20" style={{backgroundImage:"radial-gradient(#e5e7eb 1px, transparent 1px)", backgroundSize:"24px 24px"}} />
-      <div className="pointer-events-none absolute inset-0 -z-10 hidden dark:block opacity-10" style={{backgroundImage:"radial-gradient(rgba(255,255,255,0.06) 1px, transparent 1px)", backgroundSize:"24px 24px"}} />
+      {/* Background */}
+      <div className="absolute inset-0 -z-20 bg-gradient-to-br from-slate-50 via-white to-slate-100 dark:from-slate-950 dark:via-slate-900 dark:to-slate-950" />
+      <div className="pointer-events-none absolute inset-0 -z-10 opacity-0 dark:opacity-10" style={{backgroundImage:"radial-gradient(#64748b 1px, transparent 1px)", backgroundSize:"24px 24px"}} />
+      <div className="absolute inset-0 -z-10 bg-gradient-to-r from-blue-50/30 via-transparent to-purple-50/30 dark:from-blue-950/20 dark:via-transparent dark:to-purple-950/20" />
       <div className="absolute inset-0 -z-10 pointer-events-none overflow-hidden">
-        <BlurSpot className="absolute -top-16 -left-24" color="#60a5fa" size={360} opacity={0.18} />
-        <BlurSpot className="absolute top-24 -right-28" color="#a78bfa" size={420} opacity={0.14} />
+        <BlurSpot className="absolute left-8 top-16 hidden lg:block" color="#3b82f6" size={120} opacity={0.08} />
+        <BlurSpot className="absolute right-8 top-32 hidden lg:block" color="#8b5cf6" size={100} opacity={0.06} />
       </div>
 
-      <Section className="pt-28 sm:pt-36 pb-16">
-        <Card rounded="2xl" padding="md" className="shadow-soft bg-white/80 dark:bg-slate-900/80 backdrop-blur border border-black/10 dark:border-white/10">
-          <div className="flex">
-          {sidebar}
-            <div className="flex-1 p-6 space-y-8">
-            <div className="flex items-center justify-between">
-              <h1 className="text-xl font-semibold text-slate-900 dark:text-white">{activeTab === "users" ? "Kullanıcılar" : activeTab === "pricing" ? "Fiyatlandırma" : "Ödemeler"}</h1>
-            </div>
+      <Section className="pt-24 sm:pt-28 pb-6">
+        <div className="mx-auto max-w-7xl">
+          <div className="flex gap-6">
+            {sidebar}
+            <div className="flex-1">
+              <div className="mb-3 text-xs text-slate-600 dark:text-slate-400">Anasayfa / <span className="capitalize">{activeTab}</span></div>
+              <div className="rounded-2xl border border-black/10 dark:border-white/10 bg-white/80 dark:bg-slate-900/70 backdrop-blur p-6 shadow-sm min-h-[75vh]">
+                <div className="flex items-center justify-between mb-4">
+                  <h1 className="text-lg font-semibold text-slate-900 dark:text-white">
+                    {activeTab === "users" ? "Kullanıcılar" : 
+                     activeTab === "pricing" ? "Fiyatlandırma" : 
+                     activeTab === "payments" ? "Ödemeler" : 
+                     "Çekim Yönetimi"}
+                  </h1>
+                </div>
             {activeTab === "users" && (
               <UsersList onDetail={async (u: ApiUser)=>{
                 setDetailUser(u);
@@ -72,25 +96,36 @@ export default function SecretDashboard() {
                 setDetailLoading(true);
                 try {
                   if (u.role === "advertiser") {
-                    const api = process.env.NEXT_PUBLIC_API_URL || "http://localhost:5050";
-                    const res = await fetch(`${api}/api/campaigns/admin/user/${u._id || u.id}/summary`, { headers: { Authorization: `Bearer ${token}` }});
-                    const data = await res.json();
-                    setDetailData({ type: "advertiser", ...data });
+                    const userId = String(u._id || u.id);
+                    const r:any = await dispatch<any>(fetchAdminUserCampaignSummaryThunk(userId));
+                    if (r.meta.requestStatus === 'fulfilled') {
+                      setDetailData({ type: "advertiser", ...(r.payload as any).data });
+                    } else {
+                      setDetailData({ type: "advertiser", campaigns: [], totals: { count: 0, totalBudget: 0, totalSpent: 0 } });
+                    }
                   } else {
-                    // Placeholder for normal users
-                    setDetailData({ type: "user", tasksCompleted: 0, totalWithdrawn: 0 });
+                    // Use Redux-loaded payments instead of fetching here
+                    const userId = String(u._id || u.id);
+                    const list = (allPayments || []).filter((p:any)=> String(p.ownerId) === userId);
+                    setDetailData({ type: "user", payments: list });
                   }
                 } catch (e) { console.error(e); }
                 finally { setDetailLoading(false); }
               }} />
             )}
-            {activeTab === "pricing" && (
-              <PricingManager />
-            )}
-            {activeTab === "payments" && (
-              <PaymentsManager />
-            )}
+                {activeTab === "pricing" && (
+                  <PricingManager />
+                )}
+                {activeTab === "payments" && (
+                  <PaymentsManager />
+                )}
+                {activeTab === "withdrawals" && (
+                  <WithdrawalManager />
+                )}
+              </div>
+            </div>
           </div>
+        </div>
           {detailUser && (
             <div className="fixed inset-0 z-50 flex items-start justify-center pt-32 p-4 bg-black/50" onClick={()=>setDetailUser(null)}>
               <div className="bg-white dark:bg-slate-900 rounded-2xl w-full max-w-3xl border border-black/10 dark:border-white/10" onClick={(e)=>e.stopPropagation()}>
@@ -126,14 +161,21 @@ export default function SecretDashboard() {
                       </div>
                     </div>
                   ) : (
-                    <div className="grid grid-cols-2 gap-3 text-sm">
-                      <div className="rounded-xl border border-black/10 dark:border-white/10 p-3">
-                        <div className="text-[11px] text-slate-500 dark:text-slate-400">Tamamlanan Görevler</div>
-                        <div className="text-lg font-semibold text-slate-900 dark:text-white">0</div>
-                      </div>
-                      <div className="rounded-xl border border-black/10 dark:border-white/10 p-3">
-                        <div className="text-[11px] text-slate-500 dark:text-slate-400">Toplam Çekim</div>
-                        <div className="text-lg font-semibold text-slate-900 dark:text-white">₺0</div>
+                    <div className="space-y-4">
+                      <div className="text-sm font-medium">Kullanıcı İşlemleri</div>
+                      <div className="space-y-2 max-h-80 overflow-y-auto pr-1">
+                        {Array.isArray((detailData as any)?.payments) && (detailData as any).payments.length > 0 ? (
+                          (detailData as any).payments.map((p:any)=> (
+                            <div key={p._id} className="rounded-lg border border-black/10 dark:border-white/10 p-3 flex items-center justify-between text-sm">
+                              <div className="text-slate-900 dark:text-white">{new Date(p.createdAt).toLocaleString()}</div>
+                              <div className="text-slate-600 dark:text-slate-300">{p.category === 'withdrawal' ? 'Çekim' : 'Ödeme'}</div>
+                              <div className="font-semibold text-slate-900 dark:text-white">₺{Number(p.amount).toLocaleString()}</div>
+                              <span className={`px-2 py-1 rounded-md text-xs ${p.status === 'paid' || p.status === 'approved' ? 'bg-emerald-500/10 text-emerald-600 dark:text-emerald-400' : p.status==='pending' ? 'bg-yellow-500/10 text-yellow-600 dark:text-yellow-400' : 'bg-slate-500/10 text-slate-600 dark:text-slate-300'}`}>{p.status}</span>
+                            </div>
+                          ))
+                        ) : (
+                          <div className="text-slate-600 dark:text-slate-400 text-sm">İşlem bulunamadı.</div>
+                        )}
                       </div>
                     </div>
                   )}
@@ -141,9 +183,7 @@ export default function SecretDashboard() {
               </div>
             </div>
           )}
-        </div>
-      </Card>
-    </Section>
+      </Section>
     </div>
   );
 }

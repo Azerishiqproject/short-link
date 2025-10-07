@@ -1,47 +1,61 @@
 "use client";
 
-import { useState, FormEvent } from "react";
+import { useState, FormEvent, useEffect } from "react";
 import { useAppDispatch, useAppSelector } from "@/store";
+import { updateProfileThunk, fetchMeThunk, changePasswordThunk } from "@/store/slices/authSlice";
 import { Button } from "@/components/ui/Button";
-import { FiUser, FiMail, FiCheck, FiLock } from "react-icons/fi";
+import { FiUser, FiMail, FiCheck, FiLock, FiCreditCard, FiEdit3 } from "react-icons/fi";
 
 export default function Settings() {
-  const { user, token } = useAppSelector((s) => s.auth);
+  const { user, token, status } = useAppSelector((s) => s.auth);
+  const dispatch = useAppDispatch();
   const [name, setName] = useState(user?.name || "");
   const [email, setEmail] = useState(user?.email || "");
-  const [savingProfile, setSavingProfile] = useState(false);
   const [profileMsg, setProfileMsg] = useState<string | null>(null);
 
   const [currentPassword, setCurrentPassword] = useState("");
   const [newPassword, setNewPassword] = useState("");
-  const [savingPass, setSavingPass] = useState(false);
   const [passMsg, setPassMsg] = useState<string | null>(null);
 
-  const API_URL = process.env.NEXT_PUBLIC_API_URL || "http://localhost:5050";
+  // IBAN bilgileri için state'ler
+  const [iban, setIban] = useState(user?.iban || "");
+  const [fullName, setFullName] = useState(user?.fullName || "");
+  const [paymentDescription, setPaymentDescription] = useState(user?.paymentDescription || "");
+  const [ibanMsg, setIbanMsg] = useState<string | null>(null);
+  const [showIbanForm, setShowIbanForm] = useState(false);
+
+  // IBAN bilgilerinin mevcut olup olmadığını kontrol et
+  const hasIbanInfo = !!(user?.iban && user?.fullName && user?.paymentDescription);
+
+  // Kullanıcı verileri yoksa yükle
+  useEffect(() => {
+    if (token && !user) {
+      dispatch<any>(fetchMeThunk());
+    }
+  }, [token, user, dispatch]);
+
+  // Kullanıcı verileri değiştiğinde state'leri güncelle
+  useEffect(() => {
+    if (user) {
+      setName(user.name || "");
+      setEmail(user.email || "");
+      setIban(user.iban || "");
+      setFullName(user.fullName || "");
+      setPaymentDescription(user.paymentDescription || "");
+      // IBAN bilgileri varsa formu gizle, yoksa göster
+      setShowIbanForm(!hasIbanInfo);
+    }
+  }, [user, hasIbanInfo]);
 
   const saveProfile = async (e: FormEvent) => {
     e.preventDefault();
     if (!token) return;
     setProfileMsg(null);
-    setSavingProfile(true);
     try {
-      const res = await fetch(`${API_URL}/api/auth/me`, {
-        method: "PUT",
-        headers: {
-          "Content-Type": "application/json",
-          Authorization: `Bearer ${token}`,
-        },
-        body: JSON.stringify({ name, email }),
-      });
-      if (!res.ok) {
-        const data = await res.json().catch(() => ({}));
-        throw new Error(data.error || "Profil güncellenemedi");
-      }
+      await dispatch<any>(updateProfileThunk({ name, email })).unwrap();
       setProfileMsg("Profil güncellendi");
     } catch (e: any) {
       setProfileMsg(e?.message || "Bir hata oluştu");
-    } finally {
-      setSavingProfile(false);
     }
   };
 
@@ -49,28 +63,42 @@ export default function Settings() {
     e.preventDefault();
     if (!token) return;
     setPassMsg(null);
-    setSavingPass(true);
     try {
-      const res = await fetch(`${API_URL}/api/auth/change-password`, {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-          Authorization: `Bearer ${token}`,
-        },
-        body: JSON.stringify({ currentPassword, newPassword }),
-      });
-      if (!res.ok) {
-        const data = await res.json().catch(() => ({}));
-        throw new Error(data.error || "Şifre değiştirilemedi");
-      }
+      await dispatch<any>(changePasswordThunk({ currentPassword, newPassword })).unwrap();
       setPassMsg("Şifre güncellendi");
       setCurrentPassword("");
       setNewPassword("");
     } catch (e: any) {
       setPassMsg(e?.message || "Bir hata oluştu");
-    } finally {
-      setSavingPass(false);
     }
+  };
+
+  const saveIbanInfo = async (e: FormEvent) => {
+    e.preventDefault();
+    if (!token) return;
+    setIbanMsg(null);
+    try {
+      await dispatch<any>(updateProfileThunk({ 
+        iban: iban.trim(),
+        fullName: fullName.trim(),
+        paymentDescription: paymentDescription.trim()
+      })).unwrap();
+      setIbanMsg(hasIbanInfo ? "IBAN bilgileri güncellendi" : "IBAN bilgileri eklendi");
+      // Formu kapat
+      setShowIbanForm(false);
+    } catch (e: any) {
+      setIbanMsg(e?.message || "Bir hata oluştu");
+    }
+  };
+
+  // IBAN formatını kontrol et
+  const formatIban = (value: string) => {
+    const cleaned = value.replace(/[^A-Za-z0-9]/g, '').toUpperCase();
+    return cleaned.slice(0, 26);
+  };
+
+  const handleIbanChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    setIban(formatIban(e.target.value));
   };
 
   return (
@@ -138,9 +166,9 @@ export default function Settings() {
                 <p className="mt-1 text-xs text-slate-500 dark:text-slate-400">E-posta giriş ve bildirimler için kullanılır.</p>
               </div>
               <div className="flex items-center gap-3">
-                <Button type="submit" disabled={savingProfile} className="inline-flex items-center gap-2">
+                <Button type="submit" disabled={status === "loading"} className="inline-flex items-center gap-2">
                   <FiCheck className="w-4 h-4" />
-                  {savingProfile ? "Kaydediliyor..." : "Kaydet"}
+                  {status === "loading" ? "Kaydediliyor..." : "Kaydet"}
                 </Button>
                 {profileMsg && <p className={`text-sm ${profileMsg.includes("güncellendi") ? "text-green-600" : "text-red-600"}`}>{profileMsg}</p>}
               </div>
@@ -192,13 +220,144 @@ export default function Settings() {
                 <p className="mt-1 text-xs text-slate-500 dark:text-slate-400">Güçlü bir şifre kullanın (en az 6 karakter).</p>
               </div>
               <div className="flex items-center gap-3">
-                <Button type="submit" disabled={savingPass} className="inline-flex items-center gap-2">
+                <Button type="submit" disabled={status === "loading"} className="inline-flex items-center gap-2">
                   <FiCheck className="w-4 h-4" />
-                  {savingPass ? "Kaydediliyor..." : "Şifreyi Güncelle"}
+                  {status === "loading" ? "Kaydediliyor..." : "Şifreyi Güncelle"}
                 </Button>
                 {passMsg && <p className={`text-sm ${passMsg.includes("güncellendi") ? "text-green-600" : "text-red-600"}`}>{passMsg}</p>}
               </div>
             </form>
+          </div>
+        </div>
+
+        {/* IBAN Card */}
+        <div className="relative overflow-hidden rounded-2xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 shadow-sm md:col-span-2">
+          <div className="absolute inset-x-0 -top-24 h-40 bg-gradient-to-r from-amber-500/10 via-orange-500/10 to-red-500/10 blur-2xl" />
+          <div className="relative p-6">
+            <div className="mb-5 flex items-center gap-3">
+              <div className="w-9 h-9 rounded-lg bg-amber-500/10 text-amber-600 dark:text-amber-300 flex items-center justify-center">
+                <FiCreditCard className="w-4 h-4" />
+              </div>
+              <h3 className="text-lg font-semibold text-slate-900 dark:text-white">Ödeme Bilgileri</h3>
+            </div>
+
+            {/* Mevcut IBAN Bilgileri - Sadece göster */}
+            {hasIbanInfo && !showIbanForm && (
+              <div className="mb-6 p-4 bg-slate-50 dark:bg-slate-700/50 rounded-lg border border-slate-200 dark:border-slate-600">
+                <h4 className="text-sm font-semibold text-slate-900 dark:text-white mb-3">Mevcut IBAN Bilgileri</h4>
+                <div className="grid grid-cols-1 md:grid-cols-3 gap-4 text-sm">
+                  <div>
+                    <span className="text-slate-500 dark:text-slate-400">IBAN:</span>
+                    <p className="font-mono text-slate-900 dark:text-white mt-1">{user?.iban}</p>
+                  </div>
+                  <div>
+                    <span className="text-slate-500 dark:text-slate-400">Ad Soyad:</span>
+                    <p className="text-slate-900 dark:text-white mt-1">{user?.fullName}</p>
+                  </div>
+                  <div>
+                    <span className="text-slate-500 dark:text-slate-400">Açıklama:</span>
+                    <p className="text-slate-900 dark:text-white mt-1">{user?.paymentDescription}</p>
+                  </div>
+                </div>
+                <div className="mt-4">
+                  <Button 
+                    onClick={() => setShowIbanForm(true)} 
+                    className="inline-flex items-center gap-2"
+                  >
+                    <FiEdit3 className="w-4 h-4" />
+                    IBAN Bilgilerini Güncelle
+                  </Button>
+                </div>
+              </div>
+            )}
+
+            {/* IBAN Formu - Sadece showIbanForm true olduğunda göster */}
+            {showIbanForm && (
+              <form onSubmit={saveIbanInfo} className="space-y-4">
+              <div className="mb-4">
+                <h4 className="text-sm font-semibold text-slate-900 dark:text-white mb-2">
+                  {hasIbanInfo ? "IBAN Bilgilerini Güncelle" : "IBAN Bilgilerini Ekle"}
+                </h4>
+                <p className="text-xs text-slate-500 dark:text-slate-400">
+                  {hasIbanInfo 
+                    ? "Mevcut IBAN bilgilerinizi güncelleyebilirsiniz." 
+                    : "Ödeme alabilmek için IBAN bilgilerinizi girin."
+                  }
+                </p>
+              </div>
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div>
+                  <label className="block text-xs font-medium text-slate-500 dark:text-slate-400 mb-2">
+                    IBAN Numarası <span className="text-red-500">*</span>
+                  </label>
+                  <div className="relative">
+                    <span className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 dark:text-slate-300">
+                      <FiCreditCard className="w-4 h-4" />
+                    </span>
+                    <input
+                      className="w-full h-11 rounded-lg border border-slate-200 dark:border-slate-600 bg-white dark:bg-slate-700 text-slate-900 dark:text-white pl-10 pr-3 focus:outline-none focus:ring-2 focus:ring-amber-500 text-sm font-mono"
+                      value={iban}
+                      onChange={handleIbanChange}
+                      placeholder="TR1234567890123456789012345"
+                      maxLength={26}
+                    />
+                  </div>
+                  <p className="mt-1 text-xs text-slate-500 dark:text-slate-400">
+                    26 haneli IBAN numaranızı girin (TR ile başlamalı)
+                  </p>
+                </div>
+
+                <div>
+                  <label className="block text-xs font-medium text-slate-500 dark:text-slate-400 mb-2">
+                    Tam Ad Soyad <span className="text-red-500">*</span>
+                  </label>
+                  <div className="relative">
+                    <span className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 dark:text-slate-300">
+                      <FiUser className="w-4 h-4" />
+                    </span>
+                    <input
+                      className="w-full h-11 rounded-lg border border-slate-200 dark:border-slate-600 bg-white dark:bg-slate-700 text-slate-900 dark:text-white pl-10 pr-3 focus:outline-none focus:ring-2 focus:ring-amber-500 text-sm"
+                      value={fullName}
+                      onChange={(e) => setFullName(e.target.value)}
+                      placeholder="Ad Soyad"
+                    />
+                  </div>
+                  <p className="mt-1 text-xs text-slate-500 dark:text-slate-400">
+                    Para transferi için tam adınız
+                  </p>
+                </div>
+              </div>
+
+              <div>
+                <label className="block text-xs font-medium text-slate-500 dark:text-slate-400 mb-2">
+                  Ödeme Açıklaması <span className="text-red-500">*</span>
+                </label>
+                <div className="relative">
+                  <span className="absolute left-3 top-3 text-slate-400 dark:text-slate-300">
+                    <FiEdit3 className="w-4 h-4" />
+                  </span>
+                  <textarea
+                    className="w-full h-20 rounded-lg border border-slate-200 dark:border-slate-600 bg-white dark:bg-slate-700 text-slate-900 dark:text-white pl-10 pr-3 pt-3 focus:outline-none focus:ring-2 focus:ring-amber-500 text-sm resize-none"
+                    value={paymentDescription}
+                    onChange={(e) => setPaymentDescription(e.target.value)}
+                    placeholder="Örnek: Kısa link hizmeti faturası"
+                    maxLength={100}
+                  />
+                </div>
+                <p className="mt-1 text-xs text-slate-500 dark:text-slate-400">
+                  Fatura karşılığı ödeme açıklaması (max 100 karakter)
+                </p>
+              </div>
+
+              <div className="flex items-center gap-3">
+                <Button type="submit" disabled={status === "loading"} className="inline-flex items-center gap-2">
+                  <FiCheck className="w-4 h-4" />
+                  {status === "loading" ? "Kaydediliyor..." : (hasIbanInfo ? "IBAN Bilgilerini Güncelle" : "IBAN Bilgilerini Ekle")}
+                </Button>
+                {ibanMsg && <p className={`text-sm ${ibanMsg.includes("güncellendi") || ibanMsg.includes("eklendi") ? "text-green-600" : "text-red-600"}`}>{ibanMsg}</p>}
+              </div>
+              </form>
+            )}
           </div>
         </div>
       </div>

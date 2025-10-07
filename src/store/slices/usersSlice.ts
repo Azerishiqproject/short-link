@@ -9,7 +9,7 @@ type UsersState = {
   error?: string;
 };
 
-const API_URL = process.env.NEXT_PUBLIC_API_URL || "http://localhost:5050";
+const API_URL = process.env.NEXT_PUBLIC_API_URL;
 
 export const fetchAllUsersThunk = createAsyncThunk<AppUser[], { token: string }>(
   "users/fetchAll",

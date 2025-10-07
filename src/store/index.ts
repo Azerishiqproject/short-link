@@ -4,9 +4,10 @@ import authReducer from "./slices/authSlice";
 import linksReducer from "./slices/linksSlice";
 import campaignsReducer from "./slices/campaignsSlice";
 import usersReducer from "./slices/usersSlice";
+import paymentsReducer from "./slices/paymentsSlice";
 
 export const store = configureStore({
-  reducer: { auth: authReducer, links: linksReducer, campaigns: campaignsReducer, users: usersReducer },
+  reducer: { auth: authReducer, links: linksReducer, campaigns: campaignsReducer, users: usersReducer, payments: paymentsReducer },
 });
 
 export type RootState = ReturnType<typeof store.getState>;

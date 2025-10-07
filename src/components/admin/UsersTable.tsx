@@ -1,6 +1,6 @@
 "use client";
 
-type ApiUser = { id?: string; _id?: string; email: string; name?: string; role: string; createdAt?: string; balance?: number; available_balance?: number; reserved_balance?: number; display_available?: number; display_reserved?: number };
+type ApiUser = { id?: string; _id?: string; email: string; name?: string; role: string; createdAt?: string; balance?: number; available_balance?: number; reserved_balance?: number; display_available?: number; display_reserved?: number; earned_balance?: number; reserved_earned_balance?: number };
 
 interface UsersTableProps {
   users: ApiUser[];
@@ -23,6 +23,7 @@ export default function UsersTable({ users, loading, error, onDetail }: UsersTab
             <th className="py-2 pr-4">Rol</th>
             <th className="py-2 pr-4">Oluşturulma</th>
             <th className="py-2 pr-4">Bakiye (Kullanılabilir)</th>
+            <th className="py-2 pr-4">Earned (Avail/Res.)</th>
             <th className="py-2 pr-4">Detay</th>
           </tr>
         </thead>
@@ -34,6 +35,14 @@ export default function UsersTable({ users, loading, error, onDetail }: UsersTab
               <td className="py-2 pr-4">{u.role}</td>
               <td className="py-2 pr-4">{u.createdAt ? new Date(u.createdAt).toLocaleString() : "-"}</td>
               <td className="py-2 pr-4">{`₺${Number((u as any).display_available ?? u.available_balance ?? u.balance ?? 0).toLocaleString()}`}</td>
+              <td className="py-2 pr-4">
+                {(() => {
+                  const earned = Number((u as any).earned_balance ?? 0);
+                  const reserved = Number((u as any).reserved_earned_balance ?? 0);
+                  const avail = Math.max(earned - reserved, 0);
+                  return `₺${avail.toLocaleString()} / ₺${reserved.toLocaleString()}`;
+                })()}
+              </td>
               <td className="py-2 pr-4">
                 <button onClick={() => onDetail?.(u)} className="h-8 px-3 rounded-lg border border-black/10 dark:border-white/10 hover:bg-slate-100 dark:hover:bg-slate-700 text-xs">Detay</button>
               </td>

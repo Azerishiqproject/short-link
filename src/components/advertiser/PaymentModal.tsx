@@ -4,6 +4,7 @@ import { useState } from "react";
 import { Button } from "@/components/ui/Button";
 import { useAppDispatch, useAppSelector } from "@/store";
 import { fetchMeThunk } from "@/store/slices/authSlice";
+import { createPaymentThunk } from "@/store/slices/paymentsSlice";
 
 interface PaymentModalProps {
   campaignData: {
@@ -40,14 +41,19 @@ export default function PaymentModal({ campaignData, onClose, onSuccess }: Payme
     // Simulate payment processing
     await new Promise(resolve => setTimeout(resolve, 2000));
     
-    // Record payment in backend (best-effort)
+    // Record payment via Redux thunk (best-effort)
     try {
-      const API_URL = process.env.NEXT_PUBLIC_API_URL || "http://localhost:5050";
-      await fetch(`${API_URL}/api/payments`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json", ...(token ? { Authorization: `Bearer ${token}` } : {}) },
-        body: JSON.stringify({ amount: campaignData.budget, currency: "TRY", method: paymentMethod, description: `Campaign payment for ${campaignData.type} in ${campaignData.country}`, metadata: { target: campaignData.target, audience: "advertiser" } })
-      });
+      await dispatch<any>(createPaymentThunk({
+        amount: campaignData.budget,
+        currency: "TRY",
+        method: paymentMethod,
+        description: `Campaign payment for ${campaignData.type} in ${campaignData.country}`,
+        audience: "advertiser",
+        category: "payment",
+        // keep metadata for context
+        // @ts-ignore
+        metadata: { target: campaignData.target, type: campaignData.type, country: campaignData.country }
+      }));
     } catch {}
     setIsProcessing(false);
     // pull fresh profile to update balances in UI

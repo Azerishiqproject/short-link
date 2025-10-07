@@ -4,6 +4,7 @@ import { useState } from "react";
 import { Button } from "@/components/ui/Button";
 import { useAppDispatch, useAppSelector } from "@/store";
 import { fetchMeThunk } from "@/store/slices/authSlice";
+import { createPaymentThunk } from "@/store/slices/paymentsSlice";
 
 interface TopUpModalProps {
   onClose: () => void;
@@ -21,8 +22,7 @@ export default function TopUpModal({ onClose, initialAmount }: TopUpModalProps) 
     if (!amount || amount <= 0) return;
     setLoading(true);
     try {
-      const API_URL = process.env.NEXT_PUBLIC_API_URL || "http://localhost:5050";
-      await fetch(`${API_URL}/api/payments`, { method: "POST", headers: { "Content-Type": "application/json", ...(token ? { Authorization: `Bearer ${token}` } : {}) }, body: JSON.stringify({ amount, method, currency: "TRY", description: `Top-up`, category: "payment", audience: "advertiser" }) });
+      await dispatch<any>(createPaymentThunk({ amount, method, currency: "TRY", description: "Top-up", category: "payment", audience: "advertiser" }));
       try { await dispatch<any>(fetchMeThunk()); } catch {}
       onClose();
     } catch (e) {

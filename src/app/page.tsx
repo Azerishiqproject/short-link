@@ -10,10 +10,13 @@ import { WhyUs } from "@/components/ui/WhyUs";
 import { SectionDivider } from "@/components/ui/SectionDivider";
 import { Testimonials } from "@/components/ui/Testimonials";
 import dynamic from "next/dynamic";
+import { useEffect, useMemo, useState } from "react";
+import { useSearchParams, useRouter } from "next/navigation";
 
 const WordCloud = dynamic(() => import("@/components/ui/WordCloud").then(m => m.WordCloud), { ssr: false });
 
 export default function Home() {
+  // Home no longer hosts verification overlay
 
   return (
     <div className="relative overflow-x-hidden">

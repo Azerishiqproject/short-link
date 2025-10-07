@@ -25,49 +25,23 @@ export default function LinkManager() {
   const [searchTerm, setSearchTerm] = useState("");
   const [sortBy, setSortBy] = useState<"newest" | "oldest" | "clicks" | "earnings">("newest");
 
-  // Generate sample data for charts (in real app, this would come from API)
-  const generateLinkChartData = (link: any) => {
-    // Generate 7 days of data based on link creation date
-    const baseDate = new Date(link.createdAt);
-    const clickData = [];
-    
-    for (let i = 6; i >= 0; i--) {
-      const date = new Date(baseDate);
-      date.setDate(date.getDate() - i);
-      
-      // Generate realistic click data (more clicks on recent days)
-      const daysAgo = i;
-      const baseClicks = Math.floor(link.clicks / 7);
-      const randomFactor = Math.random() * 0.5 + 0.75; // 0.75 to 1.25
-      const clicks = Math.floor(baseClicks * randomFactor * (1 - daysAgo * 0.1));
-      
-      clickData.push({
-        date: date.toISOString().split('T')[0],
-        clicks: Math.max(0, clicks)
-      });
+
+  // Get real data for charts from analytics
+  const getLinkChartData = () => {
+    if (!analytics?.trend) {
+      return [];
     }
-    
-    return clickData;
+    return analytics.trend;
   };
 
-  const generateLinkCountryData = (link: any) => {
-    // Generate country data based on link clicks
-    const totalClicks = link.clicks || 0;
-    const countries = [
-      { country: 'Türkiye', percentage: 45 },
-      { country: 'Almanya', percentage: 18 },
-      { country: 'Fransa', percentage: 12 },
-      { country: 'İngiltere', percentage: 10 },
-      { country: 'İtalya', percentage: 8 },
-      { country: 'Amerika', percentage: 4 },
-      { country: 'Kanada', percentage: 2 },
-      { country: 'Japonya', percentage: 1 }
-    ];
-    
-    return countries.map(country => ({
+  const getLinkCountryData = () => {
+    if (!analytics?.countryBreakdown) {
+      return [];
+    }
+    return analytics.countryBreakdown.map(country => ({
       country: country.country,
-      count: Math.floor(totalClicks * country.percentage / 100),
-      percentage: country.percentage.toString()
+      count: country.count,
+      percentage: country.percentage
     }));
   };
 
@@ -176,7 +150,7 @@ export default function LinkManager() {
               <Button 
                 onClick={createLink} 
                 disabled={status === "loading" || !targetUrl}
-                className="bg-blue-600 hover:bg-blue-700 text-white font-medium px-6 h-11"
+                className="bg-emerald-600 hover:bg-emerald-700 text-white dark:bg-emerald-600 dark:hover:bg-emerald-700 dark:text-white font-medium px-6 h-11"
               >
                 {status === "loading" ? "Oluşturuluyor..." : "Oluştur"}
               </Button>
@@ -426,6 +400,7 @@ export default function LinkManager() {
             <div className="p-6 overflow-y-auto max-h-[calc(90vh-120px)]">
               {analytics ? (
                 <div className="space-y-6">
+
                   {/* Summary */}
                   <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
                     <div className="bg-slate-50 dark:bg-slate-700/50 rounded-lg p-4 text-center">
@@ -433,7 +408,7 @@ export default function LinkManager() {
                       <div className="text-sm text-slate-600 dark:text-slate-400 font-medium">Toplam Tıklama</div>
                     </div>
                     <div className="bg-slate-50 dark:bg-slate-700/50 rounded-lg p-4 text-center">
-                      <div className="text-2xl font-bold text-slate-900 dark:text-white">{analytics.countryBreakdown.length}</div>
+                      <div className="text-2xl font-bold text-slate-900 dark:text-white">{analytics.countryBreakdown?.length || 0}</div>
                       <div className="text-sm text-slate-600 dark:text-slate-400 font-medium">Farklı Ülke</div>
                     </div>
                     <div className="bg-slate-50 dark:bg-slate-700/50 rounded-lg p-4 text-center">
@@ -444,41 +419,53 @@ export default function LinkManager() {
                     </div>
                   </div>
 
-                  {/* Charts Section */}
+                  {/* Charts Section - Always show charts, they handle empty data internally */}
                   <div className="grid grid-cols-1 gap-6">
-                    <ClickChart data={generateLinkChartData(selectedLink)} />
-                    <GeographicHeatmap data={generateLinkCountryData(selectedLink)} />
+                    <ClickChart data={getLinkChartData()} />
+                    <GeographicHeatmap data={getLinkCountryData()} />
                   </div>
 
                   {/* Country Breakdown */}
                   <div>
                     <h3 className="text-lg font-semibold text-slate-900 dark:text-white mb-4">Detaylı Ülke / Bölge Dağılımı</h3>
                     <div className="space-y-3">
-                      {analytics.countryBreakdown.map((country, index) => (
-                        <div key={index} className="bg-slate-50 dark:bg-slate-700/50 rounded-lg p-4">
-                          <div className="flex items-center justify-between">
-                            <div className="flex items-center gap-3">
-                              <div className="w-8 h-8 bg-slate-200 dark:bg-slate-600 rounded-lg flex items-center justify-center text-sm font-semibold text-slate-700 dark:text-slate-300">
-                                {index + 1}
+                      {analytics.countryBreakdown && analytics.countryBreakdown.length > 0 ? (
+                        analytics.countryBreakdown.map((country, index) => (
+                          <div key={index} className="bg-slate-50 dark:bg-slate-700/50 rounded-lg p-4">
+                            <div className="flex items-center justify-between">
+                              <div className="flex items-center gap-3">
+                                <div className="w-8 h-8 bg-slate-200 dark:bg-slate-600 rounded-lg flex items-center justify-center text-sm font-semibold text-slate-700 dark:text-slate-300">
+                                  {index + 1}
+                                </div>
+                                <div>
+                                  <div className="font-semibold text-slate-900 dark:text-white">{country.country}</div>
+                                  <div className="text-sm text-slate-600 dark:text-slate-400">{country.count} tıklama</div>
+                                </div>
                               </div>
-                              <div>
-                                <div className="font-semibold text-slate-900 dark:text-white">{country.country}</div>
-                                <div className="text-sm text-slate-600 dark:text-slate-400">{country.count} tıklama</div>
-                              </div>
-                            </div>
-                            <div className="text-right">
-                              <div className="font-semibold text-slate-900 dark:text-white">{country.percentage}%</div>
-                              <div className="text-sm text-slate-600 dark:text-slate-400">{((country.count || 0) * (earningPerClick || 0.02)).toFixed(4)} ₺</div>
-                              <div className="w-24 bg-slate-200 dark:bg-slate-600 rounded-full h-2 mt-1">
-                                <div 
-                                  className="bg-slate-600 dark:bg-slate-400 h-2 rounded-full transition-all duration-500" 
-                                  style={{ width: `${country.percentage}%` }}
-                                />
+                              <div className="text-right">
+                                <div className="font-semibold text-slate-900 dark:text-white">{country.percentage}%</div>
+                                <div className="text-sm text-slate-600 dark:text-slate-400">{((country.count || 0) * (earningPerClick || 0.02)).toFixed(4)} ₺</div>
+                                <div className="w-24 bg-slate-200 dark:bg-slate-600 rounded-full h-2 mt-1">
+                                  <div 
+                                    className="bg-slate-600 dark:bg-slate-400 h-2 rounded-full transition-all duration-500" 
+                                    style={{ width: `${country.percentage}%` }}
+                                  />
+                                </div>
                               </div>
                             </div>
                           </div>
+                        ))
+                      ) : (
+                        <div className="text-center py-8">
+                          <div className="w-16 h-16 bg-slate-100 dark:bg-slate-700 rounded-lg flex items-center justify-center mx-auto mb-4">
+                            <svg className="w-8 h-8 text-slate-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z" />
+                            </svg>
+                          </div>
+                          <h4 className="text-lg font-semibold text-slate-900 dark:text-white mb-2">Henüz veri yok</h4>
+                          <p className="text-slate-600 dark:text-slate-400">Bu link için henüz ülke bazında veri bulunmuyor</p>
                         </div>
-                      ))}
+                      )}
                     </div>
                   </div>
                 </div>
@@ -487,8 +474,8 @@ export default function LinkManager() {
                   <div className="w-16 h-16 bg-slate-100 dark:bg-slate-700 rounded-lg flex items-center justify-center mx-auto mb-4">
                     <div className="animate-spin rounded-full h-6 w-6 border-b-2 border-slate-600 dark:border-slate-400"></div>
                   </div>
-                  <h4 className="text-lg font-semibold text-slate-900 dark:text-white mb-2">Veriler yükleniyor...</h4>
-                  <p className="text-slate-600 dark:text-slate-400 text-sm">Lütfen bekleyin</p>
+                  <h4 className="text-lg font-semibold text-slate-900 dark:text-white mb-2">Analitik veriler yükleniyor...</h4>
+                  <p className="text-slate-600 dark:text-slate-400 text-sm">Lütfen bekleyin, grafikler hazırlanıyor</p>
                 </div>
               )}
             </div>

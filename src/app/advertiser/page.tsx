@@ -7,6 +7,7 @@ import { useEffect, useRef, useState } from "react";
 import { useAppDispatch, useAppSelector } from "@/store";
 import { useRouter } from "next/navigation";
 import { AdvertiserHeader, AdvertiserContent } from "@/components/advertiser";
+import SidebarNav from "@/components/panel/SidebarNav";
 import { Button } from "@/components/ui/Button";
 import { logout } from "@/store/slices/authSlice";
 import { FiHome, FiPlayCircle, FiBarChart2, FiCreditCard, FiSettings, FiLogOut } from "react-icons/fi";
@@ -76,34 +77,19 @@ export default function AdvertiserPage() {
       <Section className="pb-6">
         <div className="mx-auto max-w-7xl">
           <div className="flex gap-6">
-            {/* Mini navbar with labels */}
-            <aside className="w-44 shrink-0 rounded-2xl border border-black/10 dark:border-white/10 bg-white/70 dark:bg-slate-900/60 backdrop-blur p-2 flex flex-col gap-2 sticky top-24 h-[75vh]">
-              {([
+            {/* Mini navbar with labels (SidebarNav) */}
+            <SidebarNav
+              items={([
                 { key: "overview", label: "Genel Bakış", icon: <FiHome className='w-4 h-4' /> },
                 { key: "campaigns", label: "Kampanyalar", icon: <FiPlayCircle className='w-4 h-4' /> },
                 { key: "analytics", label: "Analitik", icon: <FiBarChart2 className='w-4 h-4' /> },
                 { key: "billing", label: "Faturalama", icon: <FiCreditCard className='w-4 h-4' /> },
-              ] as { key: AdvertiserToolKey; label: string; icon: React.ReactElement }[]).map((t) => (
-                <button
-                  key={t.key}
-                  onClick={() => setActiveTool(t.key)}
-                  className={`w-full h-10 rounded-xl border flex items-center gap-2 px-3 text-xs bg-white dark:bg-slate-800 text-slate-700 dark:text-slate-300 border-black/10 dark:border-white/10 ${
-                    activeTool === t.key ? 'border-blue-600 dark:border-blue-500 ring-2 ring-blue-500/20 dark:ring-blue-500/20' : ''
-                  }`}
-                >
-                  {t.icon}
-                  <span className="truncate text-sm">{t.label}</span>
-                </button>
-              ))}
-              <div className="mt-auto space-y-2">
-                <button onClick={()=>setActiveTool('settings')} className={`w-full h-10 rounded-xl border flex items-center gap-2 px-3 text-xs bg-white dark:bg-slate-800 text-slate-700 dark:text-slate-300 border-black/10 dark:border-white/10 ${activeTool==='settings' ? 'border-blue-600 dark:border-blue-500 ring-2 ring-blue-500/20 dark:ring-blue-500/20' : ''}`}>
-                  <FiSettings className='w-4 h-4' /> <span className="text-sm">Ayarlar</span>
-                </button>
-                <button onClick={()=>{ dispatch(logout()); router.replace('/'); }} className="w-full h-10 rounded-xl border flex items-center gap-2 px-3 text-xs bg-white dark:bg-slate-800 text-slate-700 dark:text-slate-300 border-black/10 dark:border-white/10">
-                  <FiLogOut className='w-4 h-4' /> <span className="text-sm">Çıkış</span>
-                </button>
-              </div>
-            </aside>
+              ] as { key: string; label: string; icon: React.ReactElement }[])}
+              activeKey={activeTool}
+              onSelect={(k)=>setActiveTool(k as AdvertiserToolKey)}
+              onSettings={()=>setActiveTool('settings')}
+              onLogout={()=>{ dispatch(logout()); router.replace('/'); }}
+            />
 
             {/* Content area */}
             <div className="flex-1">

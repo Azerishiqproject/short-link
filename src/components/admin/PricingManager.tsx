@@ -3,7 +3,7 @@
 import { useState } from "react";
 import { Button } from "@/components/ui/Button";
 import { useAppDispatch, useAppSelector } from "@/store";
-import { fetchPricingThunk } from "@/store/slices/campaignsSlice";
+import { fetchPricingThunk, upsertPricingThunk } from "@/store/slices/campaignsSlice";
 
 export default function PricingManager() {
   const dispatch = useAppDispatch();
@@ -51,7 +51,7 @@ export default function PricingManager() {
                 <div className="space-y-2"><label className="block text-xs text-slate-600 dark:text-slate-300">Ülke</label><input value={newPrice.country} onChange={(e)=>setNewPrice((p)=>({ ...p, country: e.target.value }))} className="w-full h-11 rounded-xl border border-black/10 dark:border-white/10 bg-white dark:bg-slate-800 px-3 text-sm text-slate-900 dark:text-white" placeholder="Türkiye"/></div>
               </div>
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">{(["google_review","website_traffic","video_views","like_follow"] as const).map((k)=>(<div key={k} className="rounded-xl border border-black/10 dark:border-white/10 bg-slate-50/60 dark:bg-slate-800/40 p-4 space-y-2"><div className="text-xs text-slate-600 dark:text-slate-300 capitalize">{k.replace("_"," ")} (₺/1000)</div><input type="number" min={0} value={(newPrice.rates as any)[k]} onChange={(e)=>setNewPrice((p)=>({ ...p, rates: { ...p.rates, [k]: Number(e.target.value) } }))} className="w-full h-11 rounded-xl border border-black/10 dark:border-white/10 bg-white dark:bg-slate-800 px-3 text-sm text-slate-900 dark:text-white"/></div>))}</div>
-              <div className="flex items-center justify-between"><p className="text-xs text-slate-600 dark:text-slate-400">Fiyatlar 1000 tıklama başınadır.</p><Button onClick={async()=>{try{setSaving(true);const api=process.env.NEXT_PUBLIC_API_URL||"http://localhost:5050";const body={entries:[...(pricing||[]),{...newPrice,unit:"per_1000"}]};const res=await fetch(`${api}/api/pricing`,{method:"PUT",headers:{"Content-Type":"application/json",Authorization:`Bearer ${token}`},body:JSON.stringify(body)});if(!res.ok)throw new Error("Kaydedilemedi");await dispatch(fetchPricingThunk());setShow(false);}catch(e){console.error(e);}finally{setSaving(false);}}} disabled={saving}>{saving?"Kaydediliyor...":"Kaydet"}</Button></div>
+              <div className="flex items-center justify-between"><p className="text-xs text-slate-600 dark:text-slate-400">Fiyatlar 1000 tıklama başınadır.</p><Button onClick={async()=>{try{setSaving(true);await dispatch<any>(upsertPricingThunk({entries:[...(pricing||[]),{...newPrice,unit:"per_1000"}]}));await dispatch(fetchPricingThunk());setShow(false);}catch(e){console.error(e);}finally{setSaving(false);}}} disabled={saving}>{saving?"Kaydediliyor...":"Kaydet"}</Button></div>
             </div>
           </div>
         </div>

@@ -20,9 +20,10 @@ type CampaignsState = {
   error?: string;
   pricing?: Array<{ audience: "user"|"advertiser"; country: string; unit: string; rates: Record<string, number> }>;
   myPayments?: Array<{ _id: string; amount: number; currency: string; method: string; status: string; createdAt: string; description?: string }>;
+  adminUserSummary?: any;
 };
 
-const API_URL = process.env.NEXT_PUBLIC_API_URL || "http://localhost:5050";
+const API_URL = process.env.NEXT_PUBLIC_API_URL;
 
 const callApi = async (
   url: string,
@@ -98,10 +99,34 @@ export const fetchPricingThunk = createAsyncThunk(
   "campaigns/fetchPricing",
   async (_: void, { rejectWithValue }) => {
     try {
-      const API_URL = process.env.NEXT_PUBLIC_API_URL || "http://localhost:5050";
+      const API_URL = process.env.NEXT_PUBLIC_API_URL;
       const res = await fetch(`${API_URL}/api/pricing`);
       if (!res.ok) throw new Error("Fiyatlar yüklenemedi");
       return (await res.json()).entries as Array<{ audience: "user"|"advertiser"; country: string; unit: string; rates: Record<string, number> }>;
+    } catch (e: any) {
+      return rejectWithValue(e.message);
+    }
+  }
+);
+
+// Admin: upsert pricing table
+export const upsertPricingThunk = createAsyncThunk(
+  "campaigns/upsertPricing",
+  async (payload: { entries: Array<{ audience: "user"|"advertiser"; country: string; unit?: string; rates: Record<string, number> }> }, { dispatch, getState, rejectWithValue }) => {
+    try {
+      const token = (getState() as any).auth.token;
+      const res = await callApi(
+        `${API_URL}/api/pricing`,
+        {
+          method: "PUT",
+          headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
+          body: JSON.stringify(payload),
+        },
+        dispatch,
+        getState
+      );
+      const data = await res.json();
+      return data.entries as any[];
     } catch (e: any) {
       return rejectWithValue(e.message);
     }
@@ -122,8 +147,48 @@ export const fetchMyPaymentsThunk = createAsyncThunk(
   }
 );
 
+// Admin: fetch campaign summary for a user
+export const fetchAdminUserCampaignSummaryThunk = createAsyncThunk(
+  "campaigns/fetchAdminUserCampaignSummary",
+  async (userId: string, { dispatch, getState, rejectWithValue }) => {
+    try {
+      const token = (getState() as any).auth.token;
+      const res = await callApi(
+        `${API_URL}/api/campaigns/admin/user/${userId}/summary`,
+        { headers: { Authorization: `Bearer ${token}` } },
+        dispatch,
+        getState
+      );
+      const data = await res.json();
+      return { userId, data } as any;
+    } catch (e: any) {
+      return rejectWithValue(e.message);
+    }
+  }
+);
 
-const initialState: CampaignsState = { items: [], status: "idle", pricing: [] };
+// End campaign (advertiser)
+export const endCampaignThunk = createAsyncThunk(
+  "campaigns/endCampaign",
+  async (campaignId: string, { dispatch, getState, rejectWithValue }) => {
+    try {
+      const token = (getState() as any).auth.token;
+      const res = await callApi(
+        `${API_URL}/api/campaigns/${campaignId}/end`,
+        { method: "POST", headers: { Authorization: `Bearer ${token}` } },
+        dispatch,
+        getState
+      );
+      const data = await res.json();
+      return data as any;
+    } catch (e: any) {
+      return rejectWithValue(e.message);
+    }
+  }
+);
+
+
+const initialState: CampaignsState = { items: [], status: "idle", pricing: [], adminUserSummary: undefined };
 
 const campaignsSlice = createSlice({
   name: "campaigns",
@@ -145,7 +210,14 @@ const campaignsSlice = createSlice({
     });
 
     b.addCase(fetchPricingThunk.fulfilled, (s, a) => { s.pricing = a.payload as any; });
+    b.addCase(upsertPricingThunk.fulfilled, (s, a) => { s.pricing = a.payload as any; });
     b.addCase(fetchMyPaymentsThunk.fulfilled, (s, a) => { s.myPayments = a.payload as any; });
+    b.addCase(fetchAdminUserCampaignSummaryThunk.fulfilled, (s, a) => {
+      s.adminUserSummary = (a.payload as any).data;
+    });
+    b.addCase(endCampaignThunk.fulfilled, (s) => {
+      // no-op: calling code refreshes campaigns list
+    });
   }
 });
 

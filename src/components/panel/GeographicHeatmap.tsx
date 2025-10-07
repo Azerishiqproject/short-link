@@ -70,15 +70,17 @@ const getColor = (count: number, maxCount: number) => {
 };
 
 export default function GeographicHeatmap({ data }: GeographicHeatmapProps) {
+  const hasData = data && data.length > 0;
+  
   // Veriyi ülke kodlarına göre dönüştür
-  const maxCount = Math.max(...data.map(d => d.count));
-  const dataMap = data.reduce((acc, item) => {
+  const maxCount = hasData ? Math.max(...data.map(d => d.count)) : 0;
+  const dataMap = hasData ? data.reduce((acc, item) => {
     const countryCode = countryCodeMap[item.country];
     if (countryCode && countryCode !== 'OTHER') {
       acc[countryCode] = item.count;
     }
     return acc;
-  }, {} as { [key: string]: number });
+  }, {} as { [key: string]: number }) : {};
 
   return (
     <div className="bg-white dark:bg-slate-800 rounded-xl border border-slate-200 dark:border-slate-700 p-6 shadow-sm">
@@ -87,85 +89,101 @@ export default function GeographicHeatmap({ data }: GeographicHeatmapProps) {
         <p className="text-sm text-slate-600 dark:text-slate-400">Tıklamaların dünya haritasındaki dağılımı</p>
       </div>
       
-      <div className="h-80 w-full">
-        <ComposableMap
-          projection="geoMercator"
-          projectionConfig={{
-            scale: 100,
-            center: [20, 50]
-          }}
-          style={{
-            width: "100%",
-            height: "100%"
-          }}
-        >
-          <ZoomableGroup>
-            <Geographies geography={geoUrl}>
-              {({ geographies }) =>
-                geographies.map((geo) => {
-                  const countryCode = geo.properties.ISO_A3;
-                  const count = dataMap[countryCode] || 0;
-                  const color = getColor(count, maxCount);
-                  
-                  return (
-                    <Geography
-                      key={geo.rsmKey}
-                      geography={geo}
-                      fill={color}
-                      stroke="#64748b"
-                      strokeWidth={0.5}
-                      style={{
-                        default: {
-                          fill: color,
-                          stroke: "#64748b",
-                          strokeWidth: 0.5,
-                          outline: "none",
-                        },
-                        hover: {
-                          fill: "#3b82f6",
-                          stroke: "#1e40af",
-                          strokeWidth: 1,
-                          outline: "none",
-                        },
-                        pressed: {
-                          fill: "#1d4ed8",
-                          stroke: "#1e40af",
-                          strokeWidth: 1,
-                          outline: "none",
-                        },
-                      }}
-                    />
-                  );
-                })
-              }
-            </Geographies>
-          </ZoomableGroup>
-        </ComposableMap>
-      </div>
-      
-      {/* Legend */}
-      <div className="mt-4 flex items-center justify-between text-xs text-slate-600 dark:text-slate-400">
-        <div className="flex items-center gap-2">
-          <div className="w-3 h-3 rounded" style={{ backgroundColor: '#e2e8f0' }}></div>
-          <span>Veri yok</span>
+      {hasData ? (
+        <>
+          <div className="h-80 w-full">
+            <ComposableMap
+              projection="geoMercator"
+              projectionConfig={{
+                scale: 100,
+                center: [20, 50]
+              }}
+              style={{
+                width: "100%",
+                height: "100%"
+              }}
+            >
+              <ZoomableGroup>
+                <Geographies geography={geoUrl}>
+                  {({ geographies }) =>
+                    geographies.map((geo) => {
+                      const countryCode = geo.properties.ISO_A3;
+                      const count = dataMap[countryCode] || 0;
+                      const color = getColor(count, maxCount);
+                      
+                      return (
+                        <Geography
+                          key={geo.rsmKey}
+                          geography={geo}
+                          fill={color}
+                          stroke="#64748b"
+                          strokeWidth={0.5}
+                          style={{
+                            default: {
+                              fill: color,
+                              stroke: "#64748b",
+                              strokeWidth: 0.5,
+                              outline: "none",
+                            },
+                            hover: {
+                              fill: "#3b82f6",
+                              stroke: "#1e40af",
+                              strokeWidth: 1,
+                              outline: "none",
+                            },
+                            pressed: {
+                              fill: "#1d4ed8",
+                              stroke: "#1e40af",
+                              strokeWidth: 1,
+                              outline: "none",
+                            },
+                          }}
+                        />
+                      );
+                    })
+                  }
+                </Geographies>
+              </ZoomableGroup>
+            </ComposableMap>
+          </div>
+          
+          {/* Legend */}
+          <div className="mt-4 flex items-center justify-between text-xs text-slate-600 dark:text-slate-400">
+            <div className="flex items-center gap-2">
+              <div className="w-3 h-3 rounded" style={{ backgroundColor: '#e2e8f0' }}></div>
+              <span>Veri yok</span>
+            </div>
+            <div className="flex items-center gap-2">
+              <div className="w-3 h-3 rounded" style={{ backgroundColor: '#65a30d' }}></div>
+              <span>Düşük</span>
+            </div>
+            <div className="flex items-center gap-2">
+              <div className="w-3 h-3 rounded" style={{ backgroundColor: '#ca8a04' }}></div>
+              <span>Orta</span>
+            </div>
+            <div className="flex items-center gap-2">
+              <div className="w-3 h-3 rounded" style={{ backgroundColor: '#ea580c' }}></div>
+              <span>Yüksek</span>
+            </div>
+            <div className="flex items-center gap-2">
+              <div className="w-3 h-3 rounded" style={{ backgroundColor: '#dc2626' }}></div>
+              <span>Çok Yüksek</span>
+            </div>
+          </div>
+        </>
+      ) : (
+        <div className="h-80 flex items-center justify-center">
+          <div className="text-center">
+            <div className="w-16 h-16 bg-slate-100 dark:bg-slate-700 rounded-lg flex items-center justify-center mx-auto mb-4">
+              <svg className="w-8 h-8 text-slate-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3.055 11H5a2 2 0 012 2v1a2 2 0 002 2 2 2 0 012 2v2.945M8 3.935V5.5A2.5 2.5 0 0010.5 8h.5a2 2 0 012 2 2 2 0 104 0 2 2 0 012-2h1.064M15 20.488V18a2 2 0 012-2h3.064M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+              </svg>
+            </div>
+            <h4 className="text-lg font-semibold text-slate-900 dark:text-white mb-2">Henüz veri yok</h4>
+            <p className="text-slate-600 dark:text-slate-400">Bu link için henüz coğrafi veri bulunmuyor</p>
+          </div>
         </div>
-        <div className="flex items-center gap-2">
-          <div className="w-3 h-3 rounded" style={{ backgroundColor: '#65a30d' }}></div>
-          <span>Düşük</span>
-        </div>
-        <div className="flex items-center gap-2">
-          <div className="w-3 h-3 rounded" style={{ backgroundColor: '#ca8a04' }}></div>
-          <span>Orta</span>
-        </div>
-        <div className="flex items-center gap-2">
-          <div className="w-3 h-3 rounded" style={{ backgroundColor: '#ea580c' }}></div>
-          <span>Yüksek</span>
-        </div>
-        <div className="flex items-center gap-2">
-          <div className="w-3 h-3 rounded" style={{ backgroundColor: '#dc2626' }}></div>
-          <span>Çok Yüksek</span>
-        </div>
-      </div>
+      )}
     </div>
   );
 }

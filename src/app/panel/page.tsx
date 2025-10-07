@@ -1,23 +1,39 @@
 "use client";
 
 import { Section } from "@/components/ui/Section";
+import type React from "react";
 import { BlurSpot } from "@/components/ui/BlurSpot";
 import { PanelHeader, PanelContent } from "@/components/panel";
-import { useEffect, useState } from "react";
+import SidebarNav from "@/components/panel/SidebarNav";
+import UserBudget from "@/components/panel/UserBudget";
+import { useEffect, useState, Suspense } from "react";
 import { useAppDispatch, useAppSelector } from "@/store";
 import { 
   fetchLinksThunk, 
-  fetchStatsThunk
+  fetchStatsThunk,
+  fetchTrendThunk
 } from "@/store/slices/linksSlice";
-import { useRouter } from "next/navigation";
-import { Button } from "@/components/ui/Button";
+import { fetchMeThunk } from "@/store/slices/authSlice";
+import { useRouter, useSearchParams } from "next/navigation";
 import { logout } from "@/store/slices/authSlice";
+import { FiHome, FiScissors, FiDollarSign, FiSettings, FiLogOut } from "react-icons/fi";
 
-type ToolKey = "overview" | "shorten" | "links" | "analytics" | "settings";
+type ToolKey = "overview" | "shorten" | "links" | "analytics" | "budget" | "settings";
+
+function SearchParamsSync({ onTabChange }: { onTabChange: (tab: ToolKey) => void }) {
+  const searchParams = useSearchParams();
+  useEffect(() => {
+    const tab = searchParams.get('tab');
+    if (tab && ['overview', 'shorten', 'budget', 'settings'].includes(tab)) {
+      onTabChange(tab as ToolKey);
+    }
+  }, [searchParams, onTabChange]);
+  return null;
+}
 
 export default function PanelPage() {
   const { user, token, hydrated } = useAppSelector((s) => s.auth);
-  const { links, totalClicks, totalEarnings, earningPerClick } = useAppSelector((s) => s.links);
+  const { links, totalClicks, totalEarnings, earningPerClick, trend } = useAppSelector((s) => s.links);
   const dispatch = useAppDispatch();
   const router = useRouter();
   const [activeTool, setActiveTool] = useState<ToolKey>("overview");
@@ -29,20 +45,18 @@ export default function PanelPage() {
     }
   }, [hydrated, token, router]);
 
+  // URL parametresine göre tab açma, Suspense içinde ayrı bileşende senkronize ediliyor
+
   useEffect(() => {
     if (!hydrated || !token) return;
+    console.log("Panel: Loading data...");
     dispatch(fetchLinksThunk(token));
     dispatch<any>(fetchStatsThunk(token));
+    dispatch<any>(fetchTrendThunk({ token, days: 7 }));
+    dispatch<any>(fetchMeThunk()); // Kullanıcı verilerini yükle
   }, [hydrated, token, dispatch]);
 
-  // Refresh stats periodically to show real-time click counts
-  useEffect(() => {
-    if (!hydrated || !token) return;
-    const interval = setInterval(() => {
-      dispatch<any>(fetchStatsThunk(token));
-    }, 10000); // Refresh every 10 seconds
-    return () => clearInterval(interval);
-  }, [hydrated, token, dispatch]);
+  // Removed periodic refresh; fetch only on page load/refresh
 
   if (!hydrated) {
     return null;
@@ -51,16 +65,8 @@ export default function PanelPage() {
   // Calculate total earnings
   const calculatedEarnings = totalEarnings ?? ((links.reduce((sum, link) => sum + link.clicks, 0)) * (earningPerClick ?? 0.02));
 
-  // Generate sample data for charts (in real app, this would come from API)
-  const clickData = [
-    { date: '2024-01-15', clicks: 12 },
-    { date: '2024-01-16', clicks: 19 },
-    { date: '2024-01-17', clicks: 8 },
-    { date: '2024-01-18', clicks: 25 },
-    { date: '2024-01-19', clicks: 31 },
-    { date: '2024-01-20', clicks: 18 },
-    { date: '2024-01-21', clicks: 22 },
-  ];
+  // Use backend-provided trend; fallback to empty
+  const clickData = (trend || []).map(d => ({ date: d.date, clicks: d.clicks }));
 
   const countryData = [
     { country: 'Türkiye', count: 45, percentage: '35.2' },
@@ -97,49 +103,46 @@ export default function PanelPage() {
         </div>
       </Section>
 
-      {/* Top nav + Content (full height card) */}
+      {/* Mini navbar + Content */}
       <Section className="pb-6">
         <div className="mx-auto max-w-7xl">
-          {/* Top nav */}
-          <div className="mb-4 flex flex-wrap items-center gap-2">
-            {([
-              { key: "overview", label: "Genel Bakış" },
-              { key: "shorten", label: "Kısalt" },
-              { key: "links", label: "Linkler" },
-              { key: "analytics", label: "Analitik" },
-              { key: "settings", label: "Ayarlar" },
-            ] as { key: ToolKey; label: string }[]).map((t) => (
-              <button
-                key={t.key}
-                onClick={() => setActiveTool(t.key)}
-                className={`h-9 w-[110px] justify-center rounded-lg border text-xs transition ${
-                  activeTool === t.key
-                    ? "bg-slate-900 text-white dark:bg-blue-600 border-slate-900 dark:border-blue-600"
-                    : "bg-white dark:bg-slate-800 text-slate-700 dark:text-slate-300 border-black/10 dark:border-white/10"
-                }`}
-              >
-                {t.label}
-              </button>
-            ))}
-          </div>
+          <div className="flex gap-6">
+            {/* Mini navbar with labels */}
+            <SidebarNav
+              items={([
+                { key: "overview", label: "Genel Bakış", icon: <FiHome className='w-4 h-4' /> },
+                { key: "shorten", label: "Kısalt", icon: <FiScissors className='w-4 h-4' /> },
+                { key: "budget", label: "Bütçe", icon: <FiDollarSign className='w-4 h-4' /> },
+              ] as { key: ToolKey; label: string; icon: React.ReactElement }[])}
+              activeKey={activeTool}
+              onSelect={(k)=>setActiveTool(k as ToolKey)}
+              onSettings={()=>setActiveTool('settings')}
+              onLogout={()=>{ dispatch(logout()); router.replace('/'); }}
+            />
 
-          {/* Dashboard card */}
-          <div className="rounded-2xl border border-black/10 dark:border-white/10 bg-white/80 dark:bg-slate-900/70 backdrop-blur p-5 shadow-sm min-h-[70vh] flex flex-col">
+            {/* Content area */}
             <div className="flex-1">
-              <PanelContent
-                activeTool={activeTool}
-                totalLinks={links.length}
-                totalClicks={totalClicks ?? links.reduce((sum, link) => sum + link.clicks, 0)}
-                totalEarnings={calculatedEarnings}
-                clickData={clickData}
-                countryData={countryData}
-              />
-            </div>
-
-            {/* Bottom actions */}
-            <div className="mt-6 border-t border-black/10 dark:border-white/10 pt-4 flex items-center justify-end gap-3">
-              <Button variant="secondary" onClick={() => setActiveTool("settings")}>Ayarlar</Button>
-              <Button onClick={() => { dispatch(logout()); router.replace("/"); }}>Çıkış Yap</Button>
+              {/* Breadcrumb */}
+              <div className="mb-3 text-xs text-slate-600 dark:text-slate-400">
+                Anasayfa / <span className="capitalize">{activeTool}</span>
+              </div>
+              <div className="rounded-2xl border border-black/10 dark:border-white/10 bg-white/80 dark:bg-slate-900/70 backdrop-blur p-6 shadow-sm min-h-[75vh]">
+                <Suspense fallback={null}>
+                  <SearchParamsSync onTabChange={(tab)=>setActiveTool(tab)} />
+                </Suspense>
+                {activeTool === "budget" ? (
+                  <UserBudget />
+                ) : (
+                  <PanelContent
+                    activeTool={activeTool}
+                    totalLinks={links.length}
+                    totalClicks={totalClicks ?? links.reduce((sum, link) => sum + link.clicks, 0)}
+                    totalEarnings={calculatedEarnings}
+                    clickData={clickData}
+                    countryData={countryData}
+                  />
+                )}
+              </div>
             </div>
           </div>
         </div>

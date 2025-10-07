@@ -2,28 +2,22 @@
 
 import { useEffect, useState } from "react";
 import { Button } from "@/components/ui/Button";
-import { useAppSelector } from "@/store";
+import { useAppSelector, useAppDispatch } from "@/store";
+import { fetchAllPaymentsThunk } from "@/store/slices/paymentsSlice";
 
 export default function PaymentsManager() {
-  const { token } = useAppSelector((s) => s.auth);
-  const [items, setItems] = useState<any[]>([]);
-  const [loading, setLoading] = useState(false);
+  const dispatch = useAppDispatch();
+  const { allPayments, status } = useAppSelector((s) => s.payments);
   const [category, setCategory] = useState<"payment"|"withdrawal">("payment");
   const [audience, setAudience] = useState<"advertiser"|"user">("advertiser");
 
-  const refresh = async () => {
-    if (!token) return;
-    try {
-      setLoading(true);
-      const API_URL = process.env.NEXT_PUBLIC_API_URL || "http://localhost:5050";
-      const res = await fetch(`${API_URL}/api/payments/admin/all`, { headers: { Authorization: `Bearer ${token}` } });
-      const data = await res.json();
-      setItems(data.payments || []);
-    } catch (e) { console.error(e); }
-    finally { setLoading(false); }
+  const refresh = () => {
+    dispatch(fetchAllPaymentsThunk());
   };
 
-  useEffect(() => { refresh(); }, [token]);
+  useEffect(() => { 
+    refresh(); 
+  }, []);
 
   return (
     <div className="mt-10">
@@ -37,9 +31,9 @@ export default function PaymentsManager() {
         <button onClick={() => setAudience("advertiser")} className={`h-9 rounded-lg text-sm border ${audience==='advertiser' ? 'bg-slate-900 text-white dark:bg-blue-500 border-slate-900 dark:border-blue-500' : 'bg-white dark:bg-slate-800 text-slate-700 dark:text-slate-300 border-black/10 dark:border-white/10'}`}>Advertiser</button>
         <button onClick={() => setAudience("user")} className={`h-9 rounded-lg text-sm border ${audience==='user' ? 'bg-slate-900 text-white dark:bg-blue-500 border-slate-900 dark:border-blue-500' : 'bg-white dark:bg-slate-800 text-slate-700 dark:text-slate-300 border-black/10 dark:border-white/10'}`}>User</button>
       </div>
-      {loading ? (<div className="text-slate-600 dark:text-slate-400">Yükleniyor...</div>) : (
+      {status === "loading" ? (<div className="text-slate-600 dark:text-slate-400">Yükleniyor...</div>) : (
         <div className="space-y-3">
-          {items.filter(p=>p.category===category && p.audience===audience).map((p)=> (
+          {allPayments.filter(p=>p.category===category && p.audience===audience).map((p)=> (
             <div key={p._id} className="rounded-xl border border-black/10 dark:border-white/10 bg-white/80 dark:bg-slate-800/80 p-4 flex items-center justify-between">
               <div className="text-sm text-slate-900 dark:text-white">{new Date(p.createdAt).toLocaleString()}</div>
               <div className="text-sm text-slate-600 dark:text-slate-300">{p.method}</div>

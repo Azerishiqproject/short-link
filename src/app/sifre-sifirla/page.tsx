@@ -1,6 +1,8 @@
 "use client";
 
 import { useEffect, useState, type FormEvent, Suspense } from "react";
+import { useAppDispatch } from "@/store";
+import { requestPasswordResetThunk, resetPasswordThunk } from "@/store/slices/authSlice";
 export const dynamic = 'force-dynamic';
 import { useSearchParams, useRouter } from "next/navigation";
 import { Section } from "@/components/ui/Section";
@@ -10,6 +12,7 @@ import { BlurSpot } from "@/components/ui/BlurSpot";
 import Link from "next/link";
 
 export default function ForgotPassword() {
+  const dispatch = useAppDispatch();
   const router = useRouter();
   const [token, setToken] = useState<string | null>(null);
   useEffect(() => {
@@ -32,20 +35,13 @@ export default function ForgotPassword() {
     setMessage("");
 
     try {
-      const API_URL = process.env.NEXT_PUBLIC_API_URL || "http://localhost:5050";
-      const res = await fetch(`${API_URL}/api/auth/forgot-password`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ email }),
-      });
-
-      if (res.ok) {
+      const r:any = await dispatch<any>(requestPasswordResetThunk({ email }));
+      if (r.meta.requestStatus === 'fulfilled') {
         setStatus("succeeded");
         setMessage("Eğer e-posta kayıtlı ise sıfırlama bağlantısı gönderildi.");
       } else {
-        const data = await res.json().catch(() => ({}));
         setStatus("failed");
-        setMessage(data.error || "Şifre sıfırlama isteği başarısız oldu.");
+        setMessage(r.payload || "Şifre sıfırlama isteği başarısız oldu.");
       }
     } catch (error: any) {
       setStatus("failed");
@@ -70,21 +66,14 @@ export default function ForgotPassword() {
     }
 
     try {
-      const API_URL = process.env.NEXT_PUBLIC_API_URL || "http://localhost:5050";
-      const res = await fetch(`${API_URL}/api/auth/reset-password`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ token, password: newPassword }),
-      });
-
-      if (res.ok) {
+      const r:any = await dispatch<any>(resetPasswordThunk({ token, password: newPassword }));
+      if (r.meta.requestStatus === 'fulfilled') {
         setStatus("succeeded");
         setMessage("Şifreniz başarıyla sıfırlandı. Giriş sayfasına yönlendiriliyorsunuz...");
         setTimeout(() => router.push("/login"), 1200);
       } else {
-        const data = await res.json().catch(() => ({}));
         setStatus("failed");
-        setMessage(data.error || "Şifre sıfırlama başarısız oldu. Bağlantı süresi dolmuş olabilir.");
+        setMessage(r.payload || "Şifre sıfırlama başarısız oldu. Bağlantı süresi dolmuş olabilir.");
       }
     } catch (error: any) {
       setStatus("failed");
