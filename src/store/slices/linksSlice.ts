@@ -6,6 +6,7 @@ type Link = {
   slug: string;
   targetUrl: string;
   clicks: number;
+  earnings?: number;
   lastClickedAt?: string;
   disabled: boolean;
   createdAt: string;
@@ -16,9 +17,11 @@ type LinksState = {
   currentLink: Link | null;
   status: "idle" | "loading" | "succeeded" | "failed";
   error?: string;
+  linksPagination?: { page: number; limit: number; total: number; totalPages: number; hasNext: boolean; hasPrev: boolean };
   totalClicks?: number;
   totalEarnings?: number;
   earningPerClick?: number;
+  geo?: Array<{ country: string; count: number; percentage: string }>;
   analytics?: {
     linkId: string;
     totalClicks: number;
@@ -31,6 +34,7 @@ type LinksState = {
         userAgent: string;
         referer: string;
         clickedAt: string;
+        earnings: number;
       }>;
     }>;
     recentClicks: Array<{
@@ -39,11 +43,20 @@ type LinksState = {
       userAgent: string;
       referer: string;
       clickedAt: string;
+      earnings: number;
     }>;
     trend: Array<{
       date: string;
       clicks: number;
     }>;
+    pagination?: {
+      page: number;
+      limit: number;
+      total: number;
+      totalPages: number;
+      hasNext: boolean;
+      hasPrev: boolean;
+    };
   };
   trend?: Array<{ date: string; clicks: number }>;
 };
@@ -59,16 +72,19 @@ const API_URL = process.env.NEXT_PUBLIC_API_URL;
 // Fetch user's links
 export const fetchLinksThunk = createAsyncThunk(
   "links/fetchLinks",
-  async (token: string, { rejectWithValue, dispatch }) => {
+  async (payload: { token: string; page?: number; limit?: number } | string, { rejectWithValue, dispatch }) => {
     try {
-      let res = await fetch(`${API_URL}/api/links`, {
+      const token = typeof payload === 'string' ? payload : payload.token;
+      const page = typeof payload === 'string' ? 1 : (payload.page ?? 1);
+      const limit = typeof payload === 'string' ? 10 : (payload.limit ?? 10);
+      let res = await fetch(`${API_URL}/api/links?page=${page}&limit=${limit}`, {
         headers: { Authorization: `Bearer ${token}` },
       });
       if (res.status === 401) {
         try {
           await dispatch<any>(refreshAccessTokenThunk());
           const newToken = (localStorage.getItem("token") as string) || token;
-          res = await fetch(`${API_URL}/api/links`, { headers: { Authorization: `Bearer ${newToken}` } });
+          res = await fetch(`${API_URL}/api/links?page=${page}&limit=${limit}`, { headers: { Authorization: `Bearer ${newToken}` } });
         } catch {}
         if (res.status === 401) {
           dispatch(handleUnauthorized());
@@ -77,7 +93,7 @@ export const fetchLinksThunk = createAsyncThunk(
       }
       if (!res.ok) throw new Error("Linkler alınamadı");
       const data = await res.json();
-      return data.links || [];
+      return data;
     } catch (error: any) {
       return rejectWithValue(error.message);
     }
@@ -234,6 +250,35 @@ export const fetchStatsThunk = createAsyncThunk(
   }
 );
 
+// Fetch geo breakdown for overview
+export const fetchGeoThunk = createAsyncThunk(
+  "links/fetchGeo",
+  async (payload: string | { token: string; days?: number }, { rejectWithValue, dispatch }) => {
+    try {
+      const token = typeof payload === 'string' ? payload : payload.token;
+      const days = typeof payload === 'string' ? undefined : payload.days;
+      const qs = days ? `?days=${days}` : '';
+      let res = await fetch(`${API_URL}/api/links/geo${qs}`, { headers: { Authorization: `Bearer ${token}` } });
+      if (res.status === 401) {
+        try {
+          await dispatch<any>(refreshAccessTokenThunk());
+          const newToken = (localStorage.getItem("token") as string) || token;
+          res = await fetch(`${API_URL}/api/links/geo${qs}`, { headers: { Authorization: `Bearer ${newToken}` } });
+        } catch {}
+        if (res.status === 401) {
+          dispatch(handleUnauthorized());
+          return rejectWithValue("Unauthorized");
+        }
+      }
+      if (!res.ok) throw new Error("Coğrafi dağılım alınamadı");
+      const data = await res.json();
+      return data.countryBreakdown as Array<{ country: string; count: number; percentage: string }>;
+    } catch (error: any) {
+      return rejectWithValue(error.message);
+    }
+  }
+);
+
 // Fetch daily trend
 export const fetchTrendThunk = createAsyncThunk(
   "links/fetchTrend",
@@ -265,16 +310,17 @@ export const fetchTrendThunk = createAsyncThunk(
 // Fetch link analytics
 export const fetchLinkAnalyticsThunk = createAsyncThunk(
   "links/fetchLinkAnalytics",
-  async ({ token, linkId }: { token: string; linkId: string }, { rejectWithValue, dispatch }) => {
+  async ({ token, linkId, page = 1, limit = 10, days }: { token: string; linkId: string; page?: number; limit?: number; days?: number }, { rejectWithValue, dispatch }) => {
     try {
-      let res = await fetch(`${API_URL}/api/links/${linkId}/analytics`, {
+      const qs = `${`page=${page}&limit=${limit}`}${days ? `&days=${days}` : ''}`;
+      let res = await fetch(`${API_URL}/api/links/${linkId}/analytics?${qs}`, {
         headers: { Authorization: `Bearer ${token}` },
       });
       if (res.status === 401) {
         try {
           await dispatch<any>(refreshAccessTokenThunk());
           const newToken = (localStorage.getItem("token") as string) || token;
-          res = await fetch(`${API_URL}/api/links/${linkId}/analytics`, { headers: { Authorization: `Bearer ${newToken}` } });
+          res = await fetch(`${API_URL}/api/links/${linkId}/analytics?${qs}`, { headers: { Authorization: `Bearer ${newToken}` } });
         } catch {}
         if (res.status === 401) {
           dispatch(handleUnauthorized());
@@ -355,7 +401,12 @@ const linksSlice = createSlice({
       })
       .addCase(fetchLinksThunk.fulfilled, (state, action) => {
         state.status = "succeeded";
-        state.links = action.payload;
+        if (Array.isArray(action.payload)) {
+          state.links = action.payload as any;
+        } else {
+          state.links = (action.payload.links || []) as any;
+          state.linksPagination = action.payload.pagination;
+        }
       })
       .addCase(fetchLinksThunk.rejected, (state, action) => {
         state.status = "failed";
@@ -446,6 +497,9 @@ const linksSlice = createSlice({
         state.earningPerClick = action.payload.earningPerClick;
         // optionally refresh links data with earnings
         // keep existing links but update clicks if provided
+      })
+      .addCase(fetchGeoThunk.fulfilled, (state, action) => {
+        state.geo = action.payload;
       })
       .addCase(fetchStatsThunk.rejected, (state, action) => {
         state.status = "failed";

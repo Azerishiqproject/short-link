@@ -13,14 +13,17 @@ interface GeographicHeatmapProps {
 // Dünya haritası için TopoJSON URL
 const geoUrl = "https://cdn.jsdelivr.net/npm/world-atlas@2/countries-110m.json";
 
-// Ülke kodları mapping
+// Ülke kodları mapping (Türkçe ve yaygın İngilizce adlar)
 const countryCodeMap: { [key: string]: string } = {
   'Türkiye': 'TUR',
   'Almanya': 'DEU',
   'Fransa': 'FRA',
+  'France': 'FRA',
   'İngiltere': 'GBR',
+  'United Kingdom': 'GBR',
   'İtalya': 'ITA',
   'Amerika': 'USA',
+  'United States': 'USA',
   'Kanada': 'CAN',
   'Brezilya': 'BRA',
   'Arjantin': 'ARG',
@@ -58,6 +61,29 @@ const countryCodeMap: { [key: string]: string } = {
   'Diğer': 'OTHER'
 };
 
+// ISO2 -> ISO3 dönüştürme için minimal eşleme (gerektikçe genişletilebilir)
+const iso2To3: { [key: string]: string } = {
+  TR: 'TUR', DE: 'DEU', FR: 'FRA', GB: 'GBR', IT: 'ITA', US: 'USA', CA: 'CAN',
+  BR: 'BRA', AR: 'ARG', MX: 'MEX', JP: 'JPN', CN: 'CHN', IN: 'IND', KR: 'KOR',
+  AU: 'AUS', RU: 'RUS', UA: 'UKR', PL: 'POL', NL: 'NLD', BE: 'BEL', ES: 'ESP',
+  PT: 'PRT', GR: 'GRC', SE: 'SWE', NO: 'NOR', DK: 'DNK', FI: 'FIN', CH: 'CHE',
+  AT: 'AUT', CZ: 'CZE', HU: 'HUN', RO: 'ROU', BG: 'BGR', HR: 'HRV', RS: 'SRB',
+  SK: 'SVK', SI: 'SVN', EE: 'EST', LV: 'LVA', LT: 'LTU'
+};
+
+function normalizeToISO3(input: string | undefined): string | undefined {
+  if (!input) return undefined;
+  const trimmed = input.trim();
+  // Doğrudan sözlükten (TR adları / İngilizce adlar)
+  if (countryCodeMap[trimmed]) return countryCodeMap[trimmed];
+  const upper = trimmed.toUpperCase();
+  // Zaten ISO3 ise
+  if (/^[A-Z]{3}$/.test(upper)) return upper;
+  // ISO2 ise ISO3'e çevir
+  if (/^[A-Z]{2}$/.test(upper) && iso2To3[upper]) return iso2To3[upper];
+  return undefined;
+}
+
 // Renk skalası
 const getColor = (count: number, maxCount: number) => {
   if (count === 0) return '#e2e8f0'; // Gri - veri yok
@@ -75,9 +101,9 @@ export default function GeographicHeatmap({ data }: GeographicHeatmapProps) {
   // Veriyi ülke kodlarına göre dönüştür
   const maxCount = hasData ? Math.max(...data.map(d => d.count)) : 0;
   const dataMap = hasData ? data.reduce((acc, item) => {
-    const countryCode = countryCodeMap[item.country];
-    if (countryCode && countryCode !== 'OTHER') {
-      acc[countryCode] = item.count;
+    const normalized = normalizeToISO3(item.country);
+    if (normalized && normalized !== 'OTHER') {
+      acc[normalized] = (acc[normalized] || 0) + item.count;
     }
     return acc;
   }, {} as { [key: string]: number }) : {};
@@ -107,8 +133,14 @@ export default function GeographicHeatmap({ data }: GeographicHeatmapProps) {
                 <Geographies geography={geoUrl}>
                   {({ geographies }) =>
                     geographies.map((geo) => {
-                      const countryCode = geo.properties.ISO_A3;
-                      const count = dataMap[countryCode] || 0;
+                      const props: any = geo.properties || {};
+                      // Bazı topojson sürümlerinde ISO alan adları farklı olabiliyor
+                      const codeA3 = props.ISO_A3 || props.ISO3 || props.A3 || undefined;
+                      const codeA2 = props.ISO_A2 || props.ISO2 || props.A2 || undefined;
+                      const name = props.NAME || props.NAME_LONG || props.name || undefined;
+                      // Önce ISO3 ile bak, yoksa ISO2, yoksa isim üzerinden normalize et
+                      const key = codeA3 || (codeA2 ? (iso2To3[String(codeA2).toUpperCase()] || undefined) : undefined) || normalizeToISO3(String(name || '')) || undefined;
+                      const count = key ? (dataMap[key] || 0) : 0;
                       const color = getColor(count, maxCount);
                       
                       return (

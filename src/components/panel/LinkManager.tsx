@@ -2,11 +2,13 @@
 
 import { Button } from "@/components/ui/Button";
 import { useAppDispatch, useAppSelector } from "@/store";
+import Pagination from "../common/Pagination";
 import { 
   createLinkThunk, 
   updateLinkThunk, 
   deleteLinkThunk,
   fetchLinkAnalyticsThunk,
+  fetchLinksThunk,
   clearAnalytics
 } from "@/store/slices/linksSlice";
 import { useState } from "react";
@@ -24,6 +26,9 @@ export default function LinkManager() {
   const [selectedLink, setSelectedLink] = useState<any>(null);
   const [searchTerm, setSearchTerm] = useState("");
   const [sortBy, setSortBy] = useState<"newest" | "oldest" | "clicks" | "earnings">("newest");
+  const [currentPage, setCurrentPage] = useState(1);
+  const [pageSize, setPageSize] = useState(10);
+  const [analyticsDays, setAnalyticsDays] = useState<number>(7);
 
 
   // Get real data for charts from analytics
@@ -88,21 +93,50 @@ export default function LinkManager() {
     if (!token) return;
     setSelectedLink(link);
     setShowAnalytics(true);
-    dispatch(fetchLinkAnalyticsThunk({ token, linkId: link._id }));
+    setCurrentPage(1); // Reset to first page when opening analytics
+    dispatch(fetchLinkAnalyticsThunk({ token, linkId: link._id, page: 1, limit: pageSize, days: analyticsDays }));
   };
 
   const closeAnalytics = () => {
     setShowAnalytics(false);
     setSelectedLink(null);
+    setCurrentPage(1);
+    setPageSize(10);
     dispatch(clearAnalytics());
+  };
+
+  const handlePageChange = (newPage: number) => {
+    setCurrentPage(newPage);
+    if (token && selectedLink) {
+      dispatch(fetchLinkAnalyticsThunk({ token, linkId: selectedLink._id, page: newPage, limit: pageSize, days: analyticsDays }));
+    }
+  };
+
+  const handlePageSizeChange = (newSize: number) => {
+    setPageSize(newSize);
+    setCurrentPage(1); // Reset to first page when changing page size
+    if (token && selectedLink) {
+      dispatch(fetchLinkAnalyticsThunk({ token, linkId: selectedLink._id, page: 1, limit: newSize, days: analyticsDays }));
+    }
+  };
+
+  const handleAnalyticsDaysChange = (days: number) => {
+    setAnalyticsDays(days);
+    setCurrentPage(1);
+    if (token && selectedLink) {
+      dispatch(fetchLinkAnalyticsThunk({ token, linkId: selectedLink._id, page: 1, limit: pageSize, days }));
+    }
   };
 
   // Filter and sort links
   const filteredLinks = links
-    .filter(link => 
-      link.targetUrl.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      link.slug.toLowerCase().includes(searchTerm.toLowerCase())
-    )
+    .filter(link => {
+      // Search filter
+      const matchesSearch = link.targetUrl.toLowerCase().includes(searchTerm.toLowerCase()) ||
+                           link.slug.toLowerCase().includes(searchTerm.toLowerCase());
+      
+      return matchesSearch;
+    })
     .sort((a, b) => {
       switch (sortBy) {
         case "newest":
@@ -112,7 +146,7 @@ export default function LinkManager() {
         case "clicks":
           return (b.clicks || 0) - (a.clicks || 0);
         case "earnings":
-          return ((b.clicks || 0) * (earningPerClick || 0.02)) - ((a.clicks || 0) * (earningPerClick || 0.02));
+          return (b.earnings || 0) - (a.earnings || 0);
         default:
           return 0;
       }
@@ -165,33 +199,43 @@ export default function LinkManager() {
       </div>
 
       {/* Search and Filter */}
-      {links.length > 0 && (
-        <div className="bg-white dark:bg-slate-800 rounded-xl border border-slate-200 dark:border-slate-700 p-4 shadow-sm">
-          <div className="flex flex-col sm:flex-row gap-4">
-            <div className="flex-1">
-              <input
-                type="text"
-                placeholder="Link ara..."
-                value={searchTerm}
-                onChange={(e) => setSearchTerm(e.target.value)}
-                className="w-full h-10 rounded-lg border border-slate-200 dark:border-slate-600 bg-white dark:bg-slate-700 text-slate-900 dark:text-white px-3 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all text-sm"
-              />
-            </div>
-            <div className="flex gap-2">
-              <select
-                value={sortBy}
-                onChange={(e) => setSortBy(e.target.value as any)}
-                className="h-10 rounded-lg border border-slate-200 dark:border-slate-600 bg-white dark:bg-slate-700 text-slate-900 dark:text-white px-3 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all text-sm"
-              >
-                <option value="newest">En Yeni</option>
-                <option value="oldest">En Eski</option>
-                <option value="clicks">En Çok Tıklanan</option>
-                <option value="earnings">En Çok Kazanan</option>
-              </select>
-            </div>
-          </div>
-        </div>
-      )}
+       {links.length > 0 && (
+         <div className="bg-white dark:bg-slate-800 rounded-xl border border-slate-200 dark:border-slate-700 p-4 shadow-sm">
+           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+             {/* Search */}
+             <div>
+               <input
+                 type="text"
+                 placeholder="Link ara..."
+                 value={searchTerm}
+                 onChange={(e) => setSearchTerm(e.target.value)}
+                 className="w-full h-10 rounded-lg border border-slate-200 dark:border-slate-600 bg-white dark:bg-slate-700 text-slate-900 dark:text-white px-3 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all text-sm"
+               />
+             </div>
+             
+             {/* Sort */}
+             <div>
+               <select
+                 value={sortBy}
+                 onChange={(e) => setSortBy(e.target.value as any)}
+                 className="w-full h-10 rounded-lg border border-slate-200 dark:border-slate-600 bg-white dark:bg-slate-700 text-slate-900 dark:text-white px-3 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all text-sm"
+               >
+                 <option value="newest">En Yeni</option>
+                 <option value="oldest">En Eski</option>
+                 <option value="clicks">En Çok Tıklanan</option>
+                 <option value="earnings">En Çok Kazanan</option>
+               </select>
+             </div>
+           </div>
+           
+           {/* Results count */}
+           <div className="flex items-center justify-end mt-4">
+             <span className="text-sm text-slate-600 dark:text-slate-400">
+               {filteredLinks.length} link gösteriliyor
+             </span>
+           </div>
+         </div>
+       )}
 
       {/* Links List */}
       <div>
@@ -250,7 +294,7 @@ export default function LinkManager() {
                         <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                           <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8c-1.657 0-3 1.343-3 3 0 1.306.835 2.418 2 2.83V18h2v-4.17c1.165-.412 2-1.524 2-2.83 0-1.657-1.343-3-3-3z" />
                         </svg>
-                        <span className="font-medium">{((link.clicks || 0) * (earningPerClick || 0.02)).toFixed(4)} ₺</span>
+                        <span className="font-medium">{(link.earnings || 0).toFixed(4)} ₺</span>
                       </div>
                       <div className="flex items-center gap-2 text-slate-500 dark:text-slate-400">
                         <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -369,12 +413,36 @@ export default function LinkManager() {
             ))}
           </div>
         )}
+        
+        {/* Pagination Controls - Bottom */}
+        {links.length > 0 && (
+          <div className="mt-8">
+            <Pagination
+              currentPage={currentPage}
+              totalPages={Math.ceil(links.length / pageSize)}
+              totalItems={links.length}
+              pageSize={pageSize}
+              onPageChange={(newPage) => {
+                setCurrentPage(newPage);
+                if (token) dispatch(fetchLinksThunk({ token, page: newPage, limit: pageSize }));
+              }}
+              onPageSizeChange={(newSize) => {
+                setPageSize(newSize);
+                setCurrentPage(1);
+                if (token) dispatch(fetchLinksThunk({ token, page: 1, limit: newSize }));
+              }}
+              pageSizeOptions={[10, 20, 50, 100]}
+              showPageSizeSelector={true}
+              showItemCount={true}
+            />
+          </div>
+        )}
       </div>
 
       {/* Analytics Modal */}
       {showAnalytics && (
         <div className="fixed inset-0 bg-black/50 dark:bg-black/70 flex items-center justify-center p-4 z-50">
-          <div className="bg-white dark:bg-slate-800 rounded-xl max-w-6xl w-full max-h-[90vh] overflow-hidden shadow-2xl">
+          <div className="bg-white dark:bg-slate-800 rounded-xl max-w-6xl w-full max-h-[90vh] overflow-hidden shadow-2xl flex flex-col">
             <div className="p-6 border-b border-slate-200 dark:border-slate-700">
               <div className="flex items-center justify-between">
                 <div>
@@ -397,7 +465,8 @@ export default function LinkManager() {
               </div>
             </div>
             
-            <div className="p-6 overflow-y-auto max-h-[calc(90vh-120px)]">
+            <div className="flex-1 overflow-y-auto">
+              <div className="p-6">
               {analytics ? (
                 <div className="space-y-6">
 
@@ -413,14 +482,23 @@ export default function LinkManager() {
                     </div>
                     <div className="bg-slate-50 dark:bg-slate-700/50 rounded-lg p-4 text-center">
                       <div className="text-2xl font-bold text-slate-900 dark:text-white">
-                        {((analytics.totalClicks || 0) * (earningPerClick || 0.02)).toFixed(4)} ₺
+                        {(selectedLink?.earnings || 0).toFixed(4)} ₺
                       </div>
                       <div className="text-sm text-slate-600 dark:text-slate-400 font-medium">Toplam Kazanç</div>
                     </div>
                   </div>
 
-                  {/* Charts Section - Always show charts, they handle empty data internally */}
+                  {/* Charts Section - with range selector */}
                   <div className="grid grid-cols-1 gap-6">
+                    <div className="flex items-center justify-between">
+                      <div className="text-sm font-semibold text-slate-900 dark:text-white">Tıklama Trendi</div>
+                      <div className="flex items-center gap-2">
+                        <span className="text-xs text-slate-600 dark:text-slate-400">Zaman aralığı:</span>
+                        <button onClick={()=>handleAnalyticsDaysChange(7)} className={`px-3 py-1 rounded text-xs border ${analyticsDays===7? 'bg-slate-900 text-white dark:bg-white dark:text-slate-900':'bg-white dark:bg-slate-800 text-slate-700 dark:text-slate-300'} border-slate-300 dark:border-slate-600`}>1 Hafta</button>
+                        <button onClick={()=>handleAnalyticsDaysChange(30)} className={`px-3 py-1 rounded text-xs border ${analyticsDays===30? 'bg-slate-900 text-white dark:bg-white dark:text-slate-900':'bg-white dark:bg-slate-800 text-slate-700 dark:text-slate-300'} border-slate-300 dark:border-slate-600`}>1 Ay</button>
+                        <button onClick={()=>handleAnalyticsDaysChange(365)} className={`px-3 py-1 rounded text-xs border ${analyticsDays===365? 'bg-slate-900 text-white dark:bg-white dark:text-slate-900':'bg-white dark:bg-slate-800 text-slate-700 dark:text-slate-300'} border-slate-300 dark:border-slate-600`}>1 Yıl</button>
+                      </div>
+                    </div>
                     <ClickChart data={getLinkChartData()} />
                     <GeographicHeatmap data={getLinkCountryData()} />
                   </div>
@@ -444,7 +522,9 @@ export default function LinkManager() {
                               </div>
                               <div className="text-right">
                                 <div className="font-semibold text-slate-900 dark:text-white">{country.percentage}%</div>
-                                <div className="text-sm text-slate-600 dark:text-slate-400">{((country.count || 0) * (earningPerClick || 0.02)).toFixed(4)} ₺</div>
+                                <div className="text-sm text-slate-600 dark:text-slate-400">
+                                  {country.clicks ? country.clicks.reduce((sum: number, click: any) => sum + (click.earnings || 0), 0).toFixed(4) : '0.0000'} ₺
+                                </div>
                                 <div className="w-24 bg-slate-200 dark:bg-slate-600 rounded-full h-2 mt-1">
                                   <div 
                                     className="bg-slate-600 dark:bg-slate-400 h-2 rounded-full transition-all duration-500" 
@@ -468,6 +548,46 @@ export default function LinkManager() {
                       )}
                     </div>
                   </div>
+
+                  {/* Recent Clicks with Earnings */}
+                  {analytics.recentClicks && analytics.recentClicks.length > 0 && (
+                    <div>
+                      <h3 className="text-lg font-semibold text-slate-900 dark:text-white mb-4">Son Tıklamalar ve Kazançlar</h3>
+                      <div className="bg-slate-50 dark:bg-slate-700/50 rounded-lg overflow-hidden">
+                        <div className="overflow-x-auto">
+                          <table className="w-full">
+                            <thead className="bg-slate-100 dark:bg-slate-600">
+                              <tr>
+                                <th className="px-4 py-3 text-left text-xs font-medium text-slate-600 dark:text-slate-300 uppercase tracking-wider">Tarih</th>
+                                <th className="px-4 py-3 text-left text-xs font-medium text-slate-600 dark:text-slate-300 uppercase tracking-wider">Ülke</th>
+                                <th className="px-4 py-3 text-left text-xs font-medium text-slate-600 dark:text-slate-300 uppercase tracking-wider">IP</th>
+                                <th className="px-4 py-3 text-left text-xs font-medium text-slate-600 dark:text-slate-300 uppercase tracking-wider">Kazanç</th>
+                              </tr>
+                            </thead>
+                            <tbody className="divide-y divide-slate-200 dark:divide-slate-600">
+                              {analytics.recentClicks.map((click, index) => (
+                                <tr key={index} className="hover:bg-slate-100 dark:hover:bg-slate-600/50">
+                                  <td className="px-4 py-3 text-sm text-slate-900 dark:text-white">
+                                    {new Date(click.clickedAt).toLocaleString('tr-TR')}
+                                  </td>
+                                  <td className="px-4 py-3 text-sm text-slate-900 dark:text-white">
+                                    {click.country}
+                                  </td>
+                                  <td className="px-4 py-3 text-sm text-slate-600 dark:text-slate-400 font-mono">
+                                    {click.ip}
+                                  </td>
+                                  <td className="px-4 py-3 text-sm font-semibold text-green-600 dark:text-green-400">
+                                    {click.earnings.toFixed(4)} ₺
+                                  </td>
+                                </tr>
+                              ))}
+                            </tbody>
+                          </table>
+                        </div>
+                      </div>
+                      
+                    </div>
+                  )}
                 </div>
               ) : (
                 <div className="text-center py-12">
@@ -478,7 +598,33 @@ export default function LinkManager() {
                   <p className="text-slate-600 dark:text-slate-400 text-sm">Lütfen bekleyin, grafikler hazırlanıyor</p>
                 </div>
               )}
+              </div>
             </div>
+            
+            {/* Pagination Controls - Fixed at bottom */}
+            {analytics && analytics.recentClicks && analytics.recentClicks.length > 0 && (
+              <div className="border-t border-slate-200 dark:border-slate-700 p-4">
+                {(() => {
+                  const pg = analytics.pagination?.page ?? currentPage;
+                  const lim = analytics.pagination?.limit ?? pageSize;
+                  const total = analytics.pagination?.total ?? (analytics.totalClicks || 0);
+                  const totalPages = analytics.pagination?.totalPages ?? Math.max(1, Math.ceil(total / lim));
+                  return (
+                    <Pagination
+                      currentPage={pg}
+                      totalPages={totalPages}
+                      totalItems={total}
+                      pageSize={lim}
+                      onPageChange={handlePageChange}
+                      onPageSizeChange={handlePageSizeChange}
+                      pageSizeOptions={[10, 20, 50, 100]}
+                      showPageSizeSelector={true}
+                      showItemCount={true}
+                    />
+                  );
+                })()}
+              </div>
+            )}
           </div>
         </div>
       )}

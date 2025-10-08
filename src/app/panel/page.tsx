@@ -11,7 +11,8 @@ import { useAppDispatch, useAppSelector } from "@/store";
 import { 
   fetchLinksThunk, 
   fetchStatsThunk,
-  fetchTrendThunk
+  fetchTrendThunk,
+  fetchGeoThunk,
 } from "@/store/slices/linksSlice";
 import { fetchMeThunk } from "@/store/slices/authSlice";
 import { useRouter, useSearchParams } from "next/navigation";
@@ -33,10 +34,11 @@ function SearchParamsSync({ onTabChange }: { onTabChange: (tab: ToolKey) => void
 
 export default function PanelPage() {
   const { user, token, hydrated } = useAppSelector((s) => s.auth);
-  const { links, totalClicks, totalEarnings, earningPerClick, trend } = useAppSelector((s) => s.links);
+  const { links, totalClicks, totalEarnings, earningPerClick, trend, geo } = useAppSelector((s) => s.links);
   const dispatch = useAppDispatch();
   const router = useRouter();
   const [activeTool, setActiveTool] = useState<ToolKey>("overview");
+  const [overviewDays, setOverviewDays] = useState<number>(7);
 
   useEffect(() => {
     if (!hydrated) return;
@@ -50,11 +52,12 @@ export default function PanelPage() {
   useEffect(() => {
     if (!hydrated || !token) return;
     console.log("Panel: Loading data...");
-    dispatch(fetchLinksThunk(token));
+    dispatch(fetchLinksThunk({ token, page: 1, limit: 10 }));
     dispatch<any>(fetchStatsThunk(token));
-    dispatch<any>(fetchTrendThunk({ token, days: 7 }));
+    dispatch<any>(fetchTrendThunk({ token, days: overviewDays }));
+    dispatch<any>(fetchGeoThunk({ token, days: overviewDays }));
     dispatch<any>(fetchMeThunk()); // Kullanıcı verilerini yükle
-  }, [hydrated, token, dispatch]);
+  }, [hydrated, token, overviewDays, dispatch]);
 
   // Removed periodic refresh; fetch only on page load/refresh
 
@@ -68,18 +71,7 @@ export default function PanelPage() {
   // Use backend-provided trend; fallback to empty
   const clickData = (trend || []).map(d => ({ date: d.date, clicks: d.clicks }));
 
-  const countryData = [
-    { country: 'Türkiye', count: 45, percentage: '35.2' },
-    { country: 'Almanya', count: 23, percentage: '18.0' },
-    { country: 'Fransa', count: 18, percentage: '14.1' },
-    { country: 'İngiltere', count: 15, percentage: '11.7' },
-    { country: 'İtalya', count: 12, percentage: '9.4' },
-    { country: 'Amerika', count: 8, percentage: '6.3' },
-    { country: 'Kanada', count: 5, percentage: '3.9' },
-    { country: 'Japonya', count: 4, percentage: '3.1' },
-    { country: 'Avustralya', count: 3, percentage: '2.3' },
-    { country: 'Brezilya', count: 2, percentage: '1.6' },
-  ];
+  const countryData = geo || [];
 
   return (
     <div className="relative min-h-screen">
@@ -127,6 +119,7 @@ export default function PanelPage() {
                 Anasayfa / <span className="capitalize">{activeTool}</span>
               </div>
               <div className="rounded-2xl border border-black/10 dark:border-white/10 bg-white/80 dark:bg-slate-900/70 backdrop-blur p-6 shadow-sm min-h-[75vh]">
+                {/* Range selector moved into StatsOverview */}
                 <Suspense fallback={null}>
                   <SearchParamsSync onTabChange={(tab)=>setActiveTool(tab)} />
                 </Suspense>
@@ -140,6 +133,8 @@ export default function PanelPage() {
                     totalEarnings={calculatedEarnings}
                     clickData={clickData}
                     countryData={countryData}
+                    days={overviewDays}
+                    onDaysChange={(d)=>setOverviewDays(d)}
                   />
                 )}
               </div>

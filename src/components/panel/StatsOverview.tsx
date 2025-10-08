@@ -16,6 +16,8 @@ interface StatsOverviewProps {
     count: number;
     percentage: string;
   }>;
+  days?: number;
+  onDaysChange?: (days: number) => void;
 }
 
 export default function StatsOverview({ 
@@ -23,7 +25,9 @@ export default function StatsOverview({
   totalClicks, 
   totalEarnings, 
   clickData = [], 
-  countryData = [] 
+  countryData = [],
+  days,
+  onDaysChange
 }: StatsOverviewProps) {
   return (
     <div className="space-y-8">
@@ -75,6 +79,18 @@ export default function StatsOverview({
 
       {/* Charts Section */}
       <div className="grid grid-cols-1 gap-6">
+        {/* Range selector above trend */}
+        <div className="flex items-center justify-between">
+          <div className="text-sm font-semibold text-slate-900 dark:text-white">Tıklama Trendi</div>
+          {onDaysChange && (
+            <div className="flex items-center gap-2">
+              <span className="text-xs text-slate-600 dark:text-slate-400">Zaman aralığı:</span>
+              <button onClick={()=>onDaysChange(7)} className={`px-3 py-1 rounded text-xs border ${days===7? 'bg-slate-900 text-white dark:bg-white dark:text-slate-900':'bg-white dark:bg-slate-800 text-slate-700 dark:text-slate-300'} border-slate-300 dark:border-slate-600`}>1 Hafta</button>
+              <button onClick={()=>onDaysChange(30)} className={`px-3 py-1 rounded text-xs border ${days===30? 'bg-slate-900 text-white dark:bg-white dark:text-slate-900':'bg-white dark:bg-slate-800 text-slate-700 dark:text-slate-300'} border-slate-300 dark:border-slate-600`}>1 Ay</button>
+              <button onClick={()=>onDaysChange(365)} className={`px-3 py-1 rounded text-xs border ${days===365? 'bg-slate-900 text-white dark:bg-white dark:text-slate-900':'bg-white dark:bg-slate-800 text-slate-700 dark:text-slate-300'} border-slate-300 dark:border-slate-600`}>1 Yıl</button>
+            </div>
+          )}
+        </div>
         <ClickChart data={clickData} />
         <GeographicHeatmap data={countryData} />
       </div>

@@ -20,6 +20,8 @@ interface PanelContentProps {
     count: number;
     percentage: string;
   }>;
+  days?: number;
+  onDaysChange?: (days: number) => void;
 }
 
 export default function PanelContent({ 
@@ -28,7 +30,9 @@ export default function PanelContent({
   totalClicks, 
   totalEarnings, 
   clickData, 
-  countryData 
+  countryData,
+  days,
+  onDaysChange
 }: PanelContentProps) {
   return (
     <div className="flex-1">
@@ -39,6 +43,8 @@ export default function PanelContent({
           totalEarnings={totalEarnings}
           clickData={clickData}
           countryData={countryData}
+          days={days}
+          onDaysChange={onDaysChange}
         />
       )}
 

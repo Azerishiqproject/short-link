@@ -6,25 +6,49 @@ import { Card } from "../../components/ui/Card";
 import { AdminSidebar, UsersList, PricingManager, PaymentsManager } from "@/components/admin";
 import SidebarNav from "@/components/panel/SidebarNav";
 import WithdrawalManager from "@/components/admin/WithdrawalManager";
+import Pagination from "@/components/common/Pagination";
 import { useEffect, useMemo, useState } from "react";
 import { useAppDispatch, useAppSelector } from "@/store";
 import { useRouter } from "next/navigation";
 import { logout } from "@/store/slices/authSlice";
 import { fetchPricingThunk, fetchAdminUserCampaignSummaryThunk } from "@/store/slices/campaignsSlice";
 import { fetchAllPaymentsThunk } from "@/store/slices/paymentsSlice";
+import { fetchAllUsersThunk } from "@/store/slices/usersSlice";
 
 type ApiUser = { id?: string; _id?: string; email: string; name?: string; role: string; createdAt?: string };
 
 export default function SecretDashboard() {
   const { token, user, hydrated } = useAppSelector((s) => s.auth);
   const { allPayments } = useAppSelector((s) => s.payments);
+  const { users, pagination } = useAppSelector((s) => s.users);
   const dispatch = useAppDispatch();
   const router = useRouter();
-  const [users, setUsers] = useState<ApiUser[]>([]);
   const [detailUser, setDetailUser] = useState<ApiUser | null>(null);
   const [detailData, setDetailData] = useState<any | null>(null);
   const [detailLoading, setDetailLoading] = useState(false);
   const [activeTab, setActiveTab] = useState<"users" | "pricing" | "payments" | "withdrawals">("users");
+  const [currentPage, setCurrentPage] = useState(1);
+  const [pageSize, setPageSize] = useState(20);
+  const [detailCurrentPage, setDetailCurrentPage] = useState(1);
+  const [detailPageSize, setDetailPageSize] = useState(10);
+
+  const handlePageChange = (newPage: number) => {
+    setCurrentPage(newPage);
+  };
+
+  const handlePageSizeChange = (newSize: number) => {
+    setPageSize(newSize);
+    setCurrentPage(1);
+  };
+
+  const handleDetailPageChange = (newPage: number) => {
+    setDetailCurrentPage(newPage);
+  };
+
+  const handleDetailPageSizeChange = (newSize: number) => {
+    setDetailPageSize(newSize);
+    setDetailCurrentPage(1);
+  };
 
   useEffect(() => {
     console.log("Admin dashboard effect - hydrated:", hydrated, "token:", !!token, "user:", user);
@@ -41,8 +65,10 @@ export default function SecretDashboard() {
     // Users/Config fetched in Redux
     dispatch(fetchPricingThunk());
     // Preload all payments for admin views (used in user detail)
-    dispatch<any>(fetchAllPaymentsThunk()).catch(()=>{});
-  }, [hydrated, token, user?.role, router, dispatch]);
+    dispatch<any>(fetchAllPaymentsThunk({ page: 1, limit: 100 })).catch(()=>{});
+    // Fetch users with pagination
+    dispatch<any>(fetchAllUsersThunk({ token, page: currentPage, limit: pageSize }));
+  }, [hydrated, token, user?.role, router, dispatch, currentPage, pageSize]);
 
   const sidebar = useMemo(() => (
     <SidebarNav
@@ -80,7 +106,7 @@ export default function SecretDashboard() {
             {sidebar}
             <div className="flex-1">
               <div className="mb-3 text-xs text-slate-600 dark:text-slate-400">Anasayfa / <span className="capitalize">{activeTab}</span></div>
-              <div className="rounded-2xl border border-black/10 dark:border-white/10 bg-white/80 dark:bg-slate-900/70 backdrop-blur p-6 shadow-sm min-h-[75vh]">
+              <div className="rounded-2xl border border-black/10 dark:border-white/10 bg-white/80 dark:bg-slate-900/70 backdrop-blur p-6 shadow-sm min-h-[75vh] flex flex-col">
                 <div className="flex items-center justify-between mb-4">
                   <h1 className="text-lg font-semibold text-slate-900 dark:text-white">
                     {activeTab === "users" ? "Kullanıcılar" : 
@@ -89,29 +115,51 @@ export default function SecretDashboard() {
                      "Çekim Yönetimi"}
                   </h1>
                 </div>
+                <div className="flex-1 flex flex-col">
             {activeTab === "users" && (
-              <UsersList onDetail={async (u: ApiUser)=>{
-                setDetailUser(u);
-                setDetailData(null);
-                setDetailLoading(true);
-                try {
-                  if (u.role === "advertiser") {
-                    const userId = String(u._id || u.id);
-                    const r:any = await dispatch<any>(fetchAdminUserCampaignSummaryThunk(userId));
-                    if (r.meta.requestStatus === 'fulfilled') {
-                      setDetailData({ type: "advertiser", ...(r.payload as any).data });
-                    } else {
-                      setDetailData({ type: "advertiser", campaigns: [], totals: { count: 0, totalBudget: 0, totalSpent: 0 } });
-                    }
-                  } else {
-                    // Use Redux-loaded payments instead of fetching here
-                    const userId = String(u._id || u.id);
-                    const list = (allPayments || []).filter((p:any)=> String(p.ownerId) === userId);
-                    setDetailData({ type: "user", payments: list });
-                  }
-                } catch (e) { console.error(e); }
-                finally { setDetailLoading(false); }
-              }} />
+              <>
+                <div className="flex-1">
+                  <UsersList onDetail={async (u: ApiUser)=>{
+                    setDetailUser(u);
+                    setDetailData(null);
+                    setDetailLoading(true);
+                    setDetailCurrentPage(1);
+                    setDetailPageSize(10);
+                    try {
+                      if (u.role === "advertiser") {
+                        const userId = String(u._id || u.id);
+                        const r:any = await dispatch<any>(fetchAdminUserCampaignSummaryThunk(userId));
+                        if (r.meta.requestStatus === 'fulfilled') {
+                          setDetailData({ type: "advertiser", ...(r.payload as any).data });
+                        } else {
+                          setDetailData({ type: "advertiser", campaigns: [], totals: { count: 0, totalBudget: 0, totalSpent: 0 } });
+                        }
+                      } else {
+                        // Use Redux-loaded payments instead of fetching here
+                        const userId = String(u._id || u.id);
+                        const list = (allPayments || []).filter((p:any)=> String(p.ownerId) === userId);
+                        setDetailData({ type: "user", payments: list });
+                      }
+                    } catch (e) { console.error(e); }
+                    finally { setDetailLoading(false); }
+                  }} />
+                </div>
+                {pagination && (
+                  <div className="mt-4">
+                    <Pagination
+                      currentPage={currentPage}
+                      totalPages={pagination.totalPages}
+                      totalItems={pagination.total}
+                      pageSize={pageSize}
+                      onPageChange={handlePageChange}
+                      onPageSizeChange={handlePageSizeChange}
+                      pageSizeOptions={[10, 20, 50, 100]}
+                      showPageSizeSelector={true}
+                      showItemCount={true}
+                    />
+                  </div>
+                )}
+              </>
             )}
                 {activeTab === "pricing" && (
                   <PricingManager />
@@ -122,13 +170,14 @@ export default function SecretDashboard() {
                 {activeTab === "withdrawals" && (
                   <WithdrawalManager />
                 )}
+                </div>
               </div>
             </div>
           </div>
         </div>
           {detailUser && (
             <div className="fixed inset-0 z-50 flex items-start justify-center pt-32 p-4 bg-black/50" onClick={()=>setDetailUser(null)}>
-              <div className="bg-white dark:bg-slate-900 rounded-2xl w-full max-w-3xl border border-black/10 dark:border-white/10" onClick={(e)=>e.stopPropagation()}>
+              <div className="bg-white dark:bg-slate-900 rounded-2xl w-full max-w-3xl border border-black/10 dark:border-white/10 flex flex-col max-h-[80vh]" onClick={(e)=>e.stopPropagation()}>
                 <div className="p-5 border-b border-black/10 dark:border-white/10 flex items-center justify-between">
                   <div>
                     <div className="text-lg font-semibold text-slate-900 dark:text-white">{detailUser.name || detailUser.email}</div>
@@ -138,7 +187,8 @@ export default function SecretDashboard() {
                     <svg className="w-6 h-6" viewBox="0 0 24 24" fill="none" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12"/></svg>
                   </button>
                 </div>
-                <div className="p-5">
+                <div className="flex-1 overflow-y-auto">
+                  <div className="p-5">
                   {detailLoading ? (
                     <div className="text-slate-600 dark:text-slate-400">Yükleniyor...</div>
                   ) : detailData?.type === "advertiser" ? (
@@ -148,37 +198,96 @@ export default function SecretDashboard() {
                       <div className="text-sm text-slate-600 dark:text-slate-300">Toplam Harcama: ₺{(detailData.totals?.totalSpent ?? 0).toLocaleString()}</div>
                       <div className="border-t border-black/10 dark:border-white/10 pt-4">
                         <div className="text-sm font-medium mb-2">Kampanyalar</div>
-                        <div className="space-y-2 max-h-72 overflow-y-auto pr-1">
-                          {(detailData.campaigns || []).map((c:any)=> (
-                            <div key={c._id} className="rounded-lg border border-black/10 dark:border-white/10 p-3 flex items-center justify-between">
-                              <div className="text-sm text-slate-900 dark:text-white">{c.name}</div>
-                              <div className="text-xs text-slate-500 dark:text-slate-400 capitalize">{c.type.replace('_',' ')}</div>
-                              <div className="text-sm text-slate-900 dark:text-white">₺{(c.spent||0).toLocaleString()} / ₺{(c.budget||0).toLocaleString()}</div>
-                              <span className="text-xs px-2 py-1 rounded-md border border-black/10 dark:border-white/10">{c.status}</span>
-                            </div>
-                          ))}
+                        <div className="space-y-2">
+                          {(() => {
+                            const campaigns = detailData.campaigns || [];
+                            const startIndex = (detailCurrentPage - 1) * detailPageSize;
+                            const endIndex = startIndex + detailPageSize;
+                            const paginatedCampaigns = campaigns.slice(startIndex, endIndex);
+                            const totalPages = Math.ceil(campaigns.length / detailPageSize);
+                            
+                            return (
+                              <>
+                                <div className="space-y-2">
+                                  {paginatedCampaigns.map((c:any)=> (
+                                    <div key={c._id} className="rounded-lg border border-black/10 dark:border-white/10 p-3 flex items-center justify-between">
+                                      <div className="text-sm text-slate-900 dark:text-white">{c.name}</div>
+                                      <div className="text-xs text-slate-500 dark:text-slate-400 capitalize">{c.type.replace('_',' ')}</div>
+                                      <div className="text-sm text-slate-900 dark:text-white">₺{(c.spent||0).toLocaleString()} / ₺{(c.budget||0).toLocaleString()}</div>
+                                      <span className="text-xs px-2 py-1 rounded-md border border-black/10 dark:border-white/10">{c.status}</span>
+                                    </div>
+                                  ))}
+                                </div>
+                                {campaigns.length > detailPageSize && (
+                                  <div className="mt-4">
+                                    <Pagination
+                                      currentPage={detailCurrentPage}
+                                      totalPages={totalPages}
+                                      totalItems={campaigns.length}
+                                      pageSize={detailPageSize}
+                                      onPageChange={handleDetailPageChange}
+                                      onPageSizeChange={handleDetailPageSizeChange}
+                                      pageSizeOptions={[5, 10, 20]}
+                                      showPageSizeSelector={true}
+                                      showItemCount={true}
+                                    />
+                                  </div>
+                                )}
+                              </>
+                            );
+                          })()}
                         </div>
                       </div>
                     </div>
                   ) : (
                     <div className="space-y-4">
                       <div className="text-sm font-medium">Kullanıcı İşlemleri</div>
-                      <div className="space-y-2 max-h-80 overflow-y-auto pr-1">
-                        {Array.isArray((detailData as any)?.payments) && (detailData as any).payments.length > 0 ? (
-                          (detailData as any).payments.map((p:any)=> (
-                            <div key={p._id} className="rounded-lg border border-black/10 dark:border-white/10 p-3 flex items-center justify-between text-sm">
-                              <div className="text-slate-900 dark:text-white">{new Date(p.createdAt).toLocaleString()}</div>
-                              <div className="text-slate-600 dark:text-slate-300">{p.category === 'withdrawal' ? 'Çekim' : 'Ödeme'}</div>
-                              <div className="font-semibold text-slate-900 dark:text-white">₺{Number(p.amount).toLocaleString()}</div>
-                              <span className={`px-2 py-1 rounded-md text-xs ${p.status === 'paid' || p.status === 'approved' ? 'bg-emerald-500/10 text-emerald-600 dark:text-emerald-400' : p.status==='pending' ? 'bg-yellow-500/10 text-yellow-600 dark:text-yellow-400' : 'bg-slate-500/10 text-slate-600 dark:text-slate-300'}`}>{p.status}</span>
-                            </div>
-                          ))
-                        ) : (
-                          <div className="text-slate-600 dark:text-slate-400 text-sm">İşlem bulunamadı.</div>
-                        )}
+                      <div className="space-y-2">
+                        {(() => {
+                          const payments = Array.isArray((detailData as any)?.payments) ? (detailData as any).payments : [];
+                          const startIndex = (detailCurrentPage - 1) * detailPageSize;
+                          const endIndex = startIndex + detailPageSize;
+                          const paginatedPayments = payments.slice(startIndex, endIndex);
+                          const totalPages = Math.ceil(payments.length / detailPageSize);
+                          
+                          return (
+                            <>
+                              <div className="space-y-2">
+                                {paginatedPayments.length > 0 ? (
+                                  paginatedPayments.map((p:any)=> (
+                                    <div key={p._id} className="rounded-lg border border-black/10 dark:border-white/10 p-3 flex items-center justify-between text-sm">
+                                      <div className="text-slate-900 dark:text-white">{new Date(p.createdAt).toLocaleString()}</div>
+                                      <div className="text-slate-600 dark:text-slate-300">{p.category === 'withdrawal' ? 'Çekim' : 'Ödeme'}</div>
+                                      <div className="font-semibold text-slate-900 dark:text-white">₺{Number(p.amount).toLocaleString()}</div>
+                                      <span className={`px-2 py-1 rounded-md text-xs ${p.status === 'paid' || p.status === 'approved' ? 'bg-emerald-500/10 text-emerald-600 dark:text-emerald-400' : p.status==='pending' ? 'bg-yellow-500/10 text-yellow-600 dark:text-yellow-400' : 'bg-slate-500/10 text-slate-600 dark:text-slate-300'}`}>{p.status}</span>
+                                    </div>
+                                  ))
+                                ) : (
+                                  <div className="text-slate-600 dark:text-slate-400 text-sm">İşlem bulunamadı.</div>
+                                )}
+                              </div>
+                              {payments.length > detailPageSize && (
+                                <div className="mt-4">
+                                  <Pagination
+                                    currentPage={detailCurrentPage}
+                                    totalPages={totalPages}
+                                    totalItems={payments.length}
+                                    pageSize={detailPageSize}
+                                    onPageChange={handleDetailPageChange}
+                                    onPageSizeChange={handleDetailPageSizeChange}
+                                    pageSizeOptions={[5, 10, 20]}
+                                    showPageSizeSelector={true}
+                                    showItemCount={true}
+                                  />
+                                </div>
+                              )}
+                            </>
+                          );
+                        })()}
                       </div>
                     </div>
                   )}
+                  </div>
                 </div>
               </div>
             </div>
