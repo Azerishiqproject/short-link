@@ -40,7 +40,7 @@ const MIN_REFRESH_INTERVAL_MS = 15 * 60 * 1000; // 15 minutes
 
 export const registerThunk = createAsyncThunk(
   "auth/register",
-  async (payload: { email: string; password: string; name?: string; role?: string; referralCode?: string }) => {
+  async (payload: { email: string; password: string; name?: string; referralCode?: string }) => {
     const res = await fetch(`${API_URL}/api/auth/register`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },

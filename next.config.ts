@@ -5,6 +5,9 @@ const nextConfig: NextConfig = {
     // Disable ESLint during production builds to unblock build output
     ignoreDuringBuilds: true,
   },
+  env: {
+    NEXT_PUBLIC_API_URL: process.env.NEXT_PUBLIC_API_URL || 'https://short-link-backend-ssr2.onrender.com',
+  },
   images: {
     remotePatterns: [
       { protocol: "https", hostname: "**" },

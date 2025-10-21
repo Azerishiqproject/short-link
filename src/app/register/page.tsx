@@ -82,7 +82,7 @@ export default function Register() {
         email: formData.email,
         password: formData.password,
         name: `${formData.firstName} ${formData.lastName}`.trim(),
-        role: formData.userType,
+        // role: formData.userType, // Backend'de role field'ı reddediliyor
         referralCode: formData.referralCode || undefined,
       }));
     }
