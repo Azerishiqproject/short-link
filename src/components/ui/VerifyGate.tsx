@@ -17,7 +17,7 @@ export default function VerifyGate({ slug, onClose }: VerifyGateProps) {
   const recaptchaRef = useRef<any>(null);
 
   const siteKey = useMemo(() => {
-    return process.env.NEXT_PUBLIC_RECAPTCHA_SITE_KEY || "";
+    return process.env.RECAPTCHA_SITE_KEY || "";
   }, []);
 
   const handleToken = useCallback(async (token: string | null) => {
@@ -46,7 +46,7 @@ export default function VerifyGate({ slug, onClose }: VerifyGateProps) {
   }, [slug]);
 
   const handleErrored = useCallback(() => {
-    setError("Geçersiz site anahtarı. Lütfen NEXT_PUBLIC_RECAPTCHA_SITE_KEY değerini kontrol edin.");
+    setError("Geçersiz site anahtarı. Lütfen RECAPTCHA_SITE_KEY değerini kontrol edin.");
   }, []);
 
   return (
@@ -78,7 +78,7 @@ export default function VerifyGate({ slug, onClose }: VerifyGateProps) {
           </div>
         ) : (
           <div className="text-sm text-amber-300">
-            Site anahtarı bulunamadı. Lütfen `NEXT_PUBLIC_RECAPTCHA_SITE_KEY` ortam değişkenini ayarlayın.
+            Site anahtarı bulunamadı. Lütfen `RECAPTCHA_SITE_KEY` ortam değişkenini ayarlayın.
           </div>
         )}
         {verifying && (

@@ -76,7 +76,7 @@ const initialState: LinksState = {
   status: "idle",
 };
 
-const API_URL = process.env.NEXT_PUBLIC_API_URL;
+const API_URL = process.env.API_URL;
 
 // Fetch user's links
 export const fetchLinksThunk = createAsyncThunk(
@@ -466,7 +466,7 @@ export const issueTokenThunk = createAsyncThunk(
   "links/issueToken",
   async (payload: { slug: string }, { rejectWithValue }) => {
     try {
-      const API_URL = process.env.NEXT_PUBLIC_API_URL;
+      const API_URL = process.env.API_URL;
       const res = await fetch(`${API_URL}/api/links/issue-token`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },

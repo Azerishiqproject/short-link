@@ -45,7 +45,7 @@ const initialState: SupportState = {
   activeMessagesPagination: null,
 };
 
-const API_URL = process.env.NEXT_PUBLIC_API_URL as string;
+const API_URL = process.env.API_URL as string;
 
 // User: ensure/open thread
 export const openMyThreadThunk = createAsyncThunk(

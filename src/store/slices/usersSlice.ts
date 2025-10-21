@@ -18,7 +18,7 @@ type UsersState = {
   };
 };
 
-const API_URL = process.env.NEXT_PUBLIC_API_URL;
+const API_URL = process.env.API_URL;
 
 export const fetchAllUsersThunk = createAsyncThunk<{ users: AppUser[]; pagination?: any }, { token: string; page?: number; limit?: number; search?: string; role?: string }>(
   "users/fetchAll",

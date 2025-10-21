@@ -6,7 +6,7 @@ const nextConfig: NextConfig = {
     ignoreDuringBuilds: true,
   },
   env: {
-    NEXT_PUBLIC_API_URL: process.env.NEXT_PUBLIC_API_URL || 'https://short-link-backend-ssr2.onrender.com',
+    API_URL: process.env.API_URL || 'https://short-link-backend-ssr2.onrender.com',
   },
   images: {
     remotePatterns: [

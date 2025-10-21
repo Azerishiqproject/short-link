@@ -48,7 +48,7 @@ export default function PanelPage() {
     if (typeof window === 'undefined') return;
     const w = window as any;
     if (w.__fetchLoggerPatched) return;
-    const apiBase = process.env.NEXT_PUBLIC_API_URL;
+    const apiBase = process.env.API_URL;
     if (typeof window !== 'undefined') {
       const originalFetch = window.fetch.bind(window);
       const counters = (w.__reqCounters = w.__reqCounters || { total: 0, byPath: {} as Record<string, number> });

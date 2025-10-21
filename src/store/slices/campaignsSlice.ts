@@ -23,7 +23,7 @@ type CampaignsState = {
   adminUserSummary?: any;
 };
 
-const API_URL = process.env.NEXT_PUBLIC_API_URL;
+const API_URL = process.env.API_URL;
 
 const callApi = async (
   url: string,
@@ -99,7 +99,7 @@ export const fetchPricingThunk = createAsyncThunk(
   "campaigns/fetchPricing",
   async (_: void, { rejectWithValue }) => {
     try {
-      const API_URL = process.env.NEXT_PUBLIC_API_URL;
+      const API_URL = process.env.API_URL;
       const res = await fetch(`${API_URL}/api/pricing`);
       if (!res.ok) throw new Error("Fiyatlar yüklenemedi");
       return (await res.json()).entries as Array<{ audience: "user"|"advertiser"; country: string; unit: string; rates: { website_traffic: number } }>;

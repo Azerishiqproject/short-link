@@ -31,7 +31,7 @@ type AuthState = {
 };
 
 const initialState: AuthState = { user: null, token: null, refreshToken: null, status: "idle", hydrated: false };
-const API_URL = process.env.NEXT_PUBLIC_API_URL;
+const API_URL = process.env.API_URL;
 
 // Global refresh lock to prevent concurrent refresh storms
 let refreshInFlight: Promise<string> | null = null;
@@ -171,7 +171,7 @@ export const changePasswordThunk = createAsyncThunk(
 export const requestPasswordResetThunk = createAsyncThunk(
   "auth/requestPasswordReset",
   async (payload: { email: string }) => {
-    const API_URL = process.env.NEXT_PUBLIC_API_URL;
+    const API_URL = process.env.API_URL;
     const res = await fetch(`${API_URL}/api/auth/forgot-password`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
@@ -189,7 +189,7 @@ export const requestPasswordResetThunk = createAsyncThunk(
 export const resetPasswordThunk = createAsyncThunk(
   "auth/resetPassword",
   async (payload: { token: string; password: string }) => {
-    const API_URL = process.env.NEXT_PUBLIC_API_URL;
+    const API_URL = process.env.API_URL;
     const res = await fetch(`${API_URL}/api/auth/reset-password`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
