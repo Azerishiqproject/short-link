@@ -13,10 +13,12 @@ export function Navbar() {
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
   
   useEffect(() => {
-    const onScroll = () => setIsScrolled(window.scrollY > 8);
-    onScroll();
-    window.addEventListener("scroll", onScroll, { passive: true });
-    return () => window.removeEventListener("scroll", onScroll);
+    if (typeof window !== 'undefined') {
+      const onScroll = () => setIsScrolled(window.scrollY > 8);
+      onScroll();
+      window.addEventListener("scroll", onScroll, { passive: true });
+      return () => window.removeEventListener("scroll", onScroll);
+    }
   }, []);
 
   if (!hydrated) return null;
@@ -42,6 +44,9 @@ export function Navbar() {
             </Link>
             <Link href="/about" className="px-3 py-2 rounded-lg text-sm font-medium text-slate-600 dark:text-slate-300 hover:text-slate-900 dark:hover:text-white hover:bg-slate-100 dark:hover:bg-slate-800 transition-all duration-200">
               Hakkımızda
+            </Link>
+            <Link href="/blog" className="px-3 py-2 rounded-lg text-sm font-medium text-slate-600 dark:text-slate-300 hover:text-slate-900 dark:hover:text-white hover:bg-slate-100 dark:hover:bg-slate-800 transition-all duration-200">
+              Blog
             </Link>
             <Link href="/statistics" className="px-3 py-2 rounded-lg text-sm font-medium text-slate-600 dark:text-slate-300 hover:text-slate-900 dark:hover:text-white hover:bg-slate-100 dark:hover:bg-slate-800 transition-all duration-200">
               Kazanç Oranları
@@ -126,18 +131,25 @@ export function Navbar() {
                 Ana Sayfa
               </Link>
               <Link 
-                href="/statistics" 
-                className="block text-slate-600 dark:text-slate-300 hover:text-slate-900 dark:hover:text-white hover:bg-slate-100 dark:hover:bg-slate-800 px-3 py-2 rounded-lg transition-all duration-200 text-sm font-medium"
-                onClick={() => setIsMobileMenuOpen(false)}
-              >
-                Kazanç Oranları
-              </Link>
-              <Link 
                 href="/about" 
                 className="block text-slate-600 dark:text-slate-300 hover:text-slate-900 dark:hover:text-white hover:bg-slate-100 dark:hover:bg-slate-800 px-3 py-2 rounded-lg transition-all duration-200 text-sm font-medium"
                 onClick={() => setIsMobileMenuOpen(false)}
               >
                 Hakkımızda
+              </Link>
+              <Link 
+                href="/blog" 
+                className="block text-slate-600 dark:text-slate-300 hover:text-slate-900 dark:hover:text-white hover:bg-slate-100 dark:hover:bg-slate-800 px-3 py-2 rounded-lg transition-all duration-200 text-sm font-medium"
+                onClick={() => setIsMobileMenuOpen(false)}
+              >
+                Blog
+              </Link>
+              <Link 
+                href="/statistics" 
+                className="block text-slate-600 dark:text-slate-300 hover:text-slate-900 dark:hover:text-white hover:bg-slate-100 dark:hover:bg-slate-800 px-3 py-2 rounded-lg transition-all duration-200 text-sm font-medium"
+                onClick={() => setIsMobileMenuOpen(false)}
+              >
+                Kazanç Oranları
               </Link>
               <Link 
                 href="/advertise" 
@@ -242,5 +254,6 @@ export function Navbar() {
 }
 
 export default Navbar;
+
 
 

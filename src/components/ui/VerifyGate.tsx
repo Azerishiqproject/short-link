@@ -36,7 +36,7 @@ export default function VerifyGate({ slug, onClose }: VerifyGateProps) {
       const tkn = (issueRes.payload as any)?.token as string | undefined;
       if (!target || !tkn) throw new Error("Yönlendirme bilgisi eksik");
       const url = `${target}${target.includes('?') ? '&' : '?'}t=${encodeURIComponent(tkn)}`;
-      window.location.replace(url);
+      if (typeof window !== 'undefined') window.location.replace(url);
     } catch (e: any) {
       setError(e?.message || "Bilinmeyen hata");
       recaptchaRef.current?.reset();

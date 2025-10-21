@@ -6,7 +6,7 @@ import { BlurSpot } from "@/components/ui/BlurSpot";
 import { PanelHeader, PanelContent } from "@/components/panel";
 import SidebarNav from "@/components/panel/SidebarNav";
 import UserBudget from "@/components/panel/UserBudget";
-import { useEffect, useState, Suspense } from "react";
+import { useEffect, useState, useRef, Suspense } from "react";
 import { useAppDispatch, useAppSelector } from "@/store";
 import { 
   fetchLinksThunk, 
@@ -18,6 +18,7 @@ import { fetchMeThunk } from "@/store/slices/authSlice";
 import { useRouter, useSearchParams } from "next/navigation";
 import { logout } from "@/store/slices/authSlice";
 import { FiHome, FiScissors, FiDollarSign, FiSettings, FiLogOut } from "react-icons/fi";
+import ChatWidget from "@/components/ui/ChatWidget";
 
 type ToolKey = "overview" | "shorten" | "links" | "analytics" | "budget" | "settings";
 
@@ -39,6 +40,42 @@ export default function PanelPage() {
   const router = useRouter();
   const [activeTool, setActiveTool] = useState<ToolKey>("overview");
   const [overviewDays, setOverviewDays] = useState<number>(7);
+  const initialLoadedRef = useRef<boolean>(false);
+  const lastTrendDaysRef = useRef<number | null>(null);
+
+  // Dev-only: log outgoing fetch requests count for visibility
+  useEffect(() => {
+    if (typeof window === 'undefined') return;
+    const w = window as any;
+    if (w.__fetchLoggerPatched) return;
+    const apiBase = process.env.NEXT_PUBLIC_API_URL;
+    if (typeof window !== 'undefined') {
+      const originalFetch = window.fetch.bind(window);
+      const counters = (w.__reqCounters = w.__reqCounters || { total: 0, byPath: {} as Record<string, number> });
+      w.__fetchLoggerPatched = true;
+      window.fetch = async (input: RequestInfo | URL, init?: RequestInit) => {
+      const url = typeof input === 'string' ? input : (input as URL).toString();
+      const shouldLog = apiBase && url.startsWith(apiBase);
+      if (shouldLog) {
+        counters.total += 1;
+        const path = url.replace(apiBase as string, '') || '/';
+        counters.byPath[path] = (counters.byPath[path] || 0) + 1;
+      }
+      try {
+        const res = await originalFetch(input, init);
+        if (shouldLog) {
+        }
+        return res;
+      } catch (e) {
+        if (shouldLog) console.warn(`[ERR ${counters.total}]`, e);
+        throw e;
+      }
+      };
+    }
+    return () => {
+      // keep patched during page lifetime; do not restore to preserve counts
+    };
+  }, []);
 
   useEffect(() => {
     if (!hydrated) return;
@@ -49,14 +86,24 @@ export default function PanelPage() {
 
   // URL parametresine göre tab açma, Suspense içinde ayrı bileşende senkronize ediliyor
 
+  // Initial data load (not dependent on days)
   useEffect(() => {
     if (!hydrated || !token) return;
-    console.log("Panel: Loading data...");
-    dispatch(fetchLinksThunk({ token, page: 1, limit: 10 }));
+    if (initialLoadedRef.current) return; // prevent double-dispatch in StrictMode
+    initialLoadedRef.current = true;
+    dispatch(fetchLinksThunk(token));
     dispatch<any>(fetchStatsThunk(token));
-    dispatch<any>(fetchTrendThunk({ token, days: overviewDays }));
     dispatch<any>(fetchGeoThunk({ token, days: overviewDays }));
     dispatch<any>(fetchMeThunk()); // Kullanıcı verilerini yükle
+  }, [hydrated, token, dispatch]);
+
+  // Load trend when range (days) changes
+  useEffect(() => {
+    if (!hydrated || !token) return;
+    if (lastTrendDaysRef.current === overviewDays) return; // avoid duplicate fetch
+    lastTrendDaysRef.current = overviewDays;
+    dispatch<any>(fetchTrendThunk({ token, days: overviewDays }));
+    dispatch<any>(fetchGeoThunk({ token, days: overviewDays }));
   }, [hydrated, token, overviewDays, dispatch]);
 
   // Removed periodic refresh; fetch only on page load/refresh
@@ -65,8 +112,8 @@ export default function PanelPage() {
     return null;
   }
 
-  // Toplam kazancı kullanıcıdan (earned_balance) al; yoksa backend stats veya son çare olarak clicks*rate
-  const calculatedEarnings = (user?.earned_balance ?? undefined) ?? totalEarnings ?? ((links.reduce((sum, link) => sum + link.clicks, 0)) * (earningPerClick ?? 0.02));
+  // Toplam kazancı kullanıcıdan (available_balance) al; yoksa backend stats veya son çare olarak clicks*rate
+  const calculatedEarnings = (user?.available_balance ?? undefined) ?? totalEarnings ?? ((links.reduce((sum, link) => sum + link.clicks, 0)) * (earningPerClick ?? 0.02));
 
   // Use backend-provided trend; fallback to empty
   const clickData = (trend || []).map(d => ({ date: d.date, clicks: d.clicks }));
@@ -89,16 +136,16 @@ export default function PanelPage() {
       </div>
 
       {/* Header */}
-      <Section className="pt-24 sm:pt-28 pb-6">
-        <div className="mx-auto max-w-7xl">
+      <Section className="pt-20 sm:pt-24 lg:pt-28 pb-4 sm:pb-6">
+        <div className="mx-auto max-w-7xl px-2 sm:px-4 lg:px-6">
           <PanelHeader userName={user?.name} userEmail={user?.email} />
         </div>
       </Section>
 
       {/* Mini navbar + Content */}
-      <Section className="pb-6">
-        <div className="mx-auto max-w-7xl">
-          <div className="flex gap-6">
+      <Section className="pb-4 sm:pb-6">
+        <div className="mx-auto max-w-7xl px-2 sm:px-4 lg:px-6">
+          <div className="flex flex-col lg:flex-row gap-4 lg:gap-6">
             {/* Mini navbar with labels */}
             <SidebarNav
               items={([
@@ -113,12 +160,12 @@ export default function PanelPage() {
             />
 
             {/* Content area */}
-            <div className="flex-1">
+            <div className="flex-1 w-full">
               {/* Breadcrumb */}
-              <div className="mb-3 text-xs text-slate-600 dark:text-slate-400">
+              <div className="mb-2 sm:mb-3 text-xs text-slate-600 dark:text-slate-400">
                 Anasayfa / <span className="capitalize">{activeTool}</span>
               </div>
-              <div className="rounded-2xl border border-black/10 dark:border-white/10 bg-white/80 dark:bg-slate-900/70 backdrop-blur p-6 shadow-sm min-h-[75vh]">
+              <div className="rounded-xl sm:rounded-2xl border border-black/10 dark:border-white/10 bg-white/80 dark:bg-slate-900/70 backdrop-blur p-3 sm:p-4 lg:p-6 shadow-sm min-h-[60vh] sm:min-h-[75vh]">
                 {/* Range selector moved into StatsOverview */}
                 <Suspense fallback={null}>
                   <SearchParamsSync onTabChange={(tab)=>setActiveTool(tab)} />
@@ -142,6 +189,8 @@ export default function PanelPage() {
           </div>
         </div>
       </Section>
+      <ChatWidget />
     </div>
   );
 }
+

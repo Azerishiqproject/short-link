@@ -5,7 +5,7 @@ import { motion } from "framer-motion";
 import { Section } from "@/components/ui/Section";
 import { Button } from "@/components/ui/Button";
 import { BlurSpot } from "@/components/ui/BlurSpot";
-
+import { useRouter } from "next/navigation";
 // Continuous scrolling image slider
 function ContinuousImageSlider() {
   const images = [
@@ -88,7 +88,7 @@ const DynamicImageGrid = dynamic(() => Promise.resolve(ContinuousImageSlider), {
 
 export function Hero() {
   const [longUrl, setLongUrl] = useState("");
-
+  const router = useRouter();
   function handleSubmit(e: React.FormEvent<HTMLFormElement>) {
     e.preventDefault();
     // Submit handler will be wired to backend later
@@ -168,6 +168,7 @@ export function Hero() {
                   <Button
                     type="button"
                     size="lg"
+                    onClick={() => router.push("/register")}
                     className="px-6 sm:px-8 py-3 bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-700 hover:to-indigo-700 text-white rounded-lg font-medium w-full sm:w-auto shadow-lg hover:shadow-xl transition-all duration-200"
                   >
                     Hemen Başla

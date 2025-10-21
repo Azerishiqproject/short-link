@@ -10,11 +10,16 @@ type User = {
   reserved_balance?: number; 
   earned_balance?: number; // Kullanıcıların kazandığı para
   reserved_earned_balance?: number; // Çekim isteği için rezerve edilen para
+  referral_earned?: number; // Referans sistemi ile kazanılan para
+  reserved_referral_earned?: number; // Referans kazancı çekim isteği için rezerve edilen para
   display_available?: number; 
   display_reserved?: number;
   iban?: string;
   fullName?: string;
   paymentDescription?: string;
+  referralCode?: string; // Kullanıcının referans kodu
+  referralCount?: number; // Kaç kişi bu kullanıcının referansıyla kayıt oldu
+  referredBy?: string; // Kim tarafından referans edildi
 };
 type AuthState = {
   user: User | null;
@@ -35,7 +40,7 @@ const MIN_REFRESH_INTERVAL_MS = 15 * 60 * 1000; // 15 minutes
 
 export const registerThunk = createAsyncThunk(
   "auth/register",
-  async (payload: { email: string; password: string; name?: string; role?: string }) => {
+  async (payload: { email: string; password: string; name?: string; role?: string; referralCode?: string }) => {
     const res = await fetch(`${API_URL}/api/auth/register`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
@@ -236,7 +241,7 @@ const authSlice = createSlice({
         localStorage.removeItem("refreshToken");
         document.cookie = "role=; Path=/; Max-Age=0";
         // Otomatik olarak login sayfasına yönlendir
-        window.location.href = "/login";
+        if (typeof window !== 'undefined') window.location.href = "/login";
       }
     },
     setFromStorage(state) {

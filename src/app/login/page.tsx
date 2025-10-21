@@ -135,9 +135,26 @@ export default function Login() {
               </div>
 
               <Button type="submit" size="lg" className="w-full" disabled={status === "loading"}>
-                {status === "loading" ? "Gönderiliyor..." : "Giriş Yap"}
+                {status === "loading" ? "Giriş yapılıyor..." : "Giriş Yap"}
               </Button>
-              {error && <p className="text-red-600 text-sm">{error}</p>}
+              {error && (
+                <div className="p-3 bg-red-50 dark:bg-red-950/30 border border-red-200 dark:border-red-800/50 rounded-lg">
+                  <p className="text-red-600 dark:text-red-400 text-sm">
+                    {error === "Invalid credentials" 
+                      ? "E-posta adresi veya şifre hatalı. Lütfen bilgilerinizi kontrol edin."
+                      : error === "User not found"
+                      ? "Bu e-posta adresi ile kayıtlı bir hesap bulunamadı."
+                      : error === "Invalid password"
+                      ? "Şifre hatalı. Lütfen şifrenizi kontrol edin."
+                      : error === "Account locked"
+                      ? "Hesabınız geçici olarak kilitlenmiştir. Lütfen daha sonra tekrar deneyin."
+                      : error === "Email not verified"
+                      ? "E-posta adresiniz doğrulanmamış. Lütfen e-postanızı kontrol edin."
+                      : "Giriş yapılırken bir hata oluştu. Lütfen tekrar deneyin."
+                    }
+                  </p>
+                </div>
+              )}
 
               <div className="relative">
                 <div className="absolute inset-0 flex items-center">

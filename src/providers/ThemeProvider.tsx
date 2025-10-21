@@ -18,7 +18,7 @@ export default function ThemeProvider({ children }: { children: React.ReactNode 
       setIsDark(true);
     } else if (stored === "light") {
       setIsDark(false);
-    } else if (window?.matchMedia && window.matchMedia("(prefers-color-scheme: dark)").matches) {
+    } else if (typeof window !== 'undefined' && window.matchMedia && window.matchMedia("(prefers-color-scheme: dark)").matches) {
       setIsDark(true);
     }
   }, []);

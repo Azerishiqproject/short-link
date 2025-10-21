@@ -156,7 +156,11 @@ export default function ReklamVer() {
                 İleri hedefleme, gerçek zamanlı analitik ve akıllı optimizasyonla sonuç odaklı reklamlar oluşturun.
               </p>
               <div className="flex flex-col sm:flex-row gap-3">
-                <Button size="lg" className="px-7 sm:px-8">
+                <Button 
+                  size="lg" 
+                  className="px-7 sm:px-8"
+                  onClick={() => alert("Çok yakında!")}
+                >
                   Kampanya Başlat
                 </Button>
                 <a href="#ad-goals" className="inline-flex">
@@ -632,8 +636,8 @@ export default function ReklamVer() {
           <h2 className="text-2xl font-bold tracking-tight">Reklam Kampanyanızı Başlatın</h2>
           <p className="mt-3 text-muted">Hemen başlayın ve markanızı milyonlarca kullanıcıya ulaştırın.</p>
           <div className="mt-6 flex items-center justify-center gap-3">
-            <Button size="lg">Kampanya Oluştur</Button>
-            <Button variant="secondary" size="lg">Demo İzle</Button>
+            <Button size="lg" onClick={() => alert("Çok yakında!")}>Kampanya Oluştur</Button>
+            <Button variant="secondary" size="lg" onClick={() => alert("Çok yakında!")}>Demo İzle</Button>
           </div>
         </div>
       </Section>

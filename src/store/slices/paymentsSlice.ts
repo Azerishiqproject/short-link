@@ -12,6 +12,7 @@ type Payment = {
   audience: "user" | "advertiser";
   iban?: string;
   fullName?: string;
+  withdrawalType?: "earned" | "referral";
   adminNotes?: string;
   createdAt: string;
   ownerId?: {
@@ -29,22 +30,6 @@ type PaymentsState = {
   userWithdrawals: Payment[];
   status: "idle" | "loading" | "succeeded" | "failed";
   error?: string;
-  allPaymentsPagination?: {
-    page: number;
-    limit: number;
-    total: number;
-    totalPages: number;
-    hasNext: boolean;
-    hasPrev: boolean;
-  };
-  withdrawalsPagination?: {
-    page: number;
-    limit: number;
-    total: number;
-    totalPages: number;
-    hasNext: boolean;
-    hasPrev: boolean;
-  };
 };
 
 const initialState: PaymentsState = {
@@ -105,20 +90,14 @@ export const fetchMyPaymentsThunk = createAsyncThunk(
 // Fetch all payments (admin)
 export const fetchAllPaymentsThunk = createAsyncThunk(
   "payments/fetchAllPayments",
-  async ({ page = 1, limit = 20, category, audience }: { page?: number; limit?: number; category?: string; audience?: string } = {}, { dispatch, getState, rejectWithValue }) => {
+  async (_, { dispatch, getState, rejectWithValue }) => {
     try {
       const token = (getState() as any).auth.token;
-      const params = new URLSearchParams({
-        page: page.toString(),
-        limit: limit.toString(),
-        ...(category && { category }),
-        ...(audience && { audience }),
-      });
-      const res = await callApi(`${API_URL}/api/payments/admin/all?${params}`, { 
+      const res = await callApi(`${API_URL}/api/payments/admin/all`, { 
         headers: { Authorization: `Bearer ${token}` } 
       }, dispatch, getState);
       const data = await res.json();
-      return { payments: data.payments as Payment[], pagination: data.pagination };
+      return data.payments as Payment[];
     } catch (e: any) {
       return rejectWithValue(e.message);
     }
@@ -128,19 +107,14 @@ export const fetchAllPaymentsThunk = createAsyncThunk(
 // Fetch user withdrawals (admin)
 export const fetchUserWithdrawalsThunk = createAsyncThunk(
   "payments/fetchUserWithdrawals",
-  async ({ page = 1, limit = 10, status }: { page?: number; limit?: number; status?: string } = {}, { dispatch, getState, rejectWithValue }) => {
+  async (_, { dispatch, getState, rejectWithValue }) => {
     try {
       const token = (getState() as any).auth.token;
-      const params = new URLSearchParams({
-        page: page.toString(),
-        limit: limit.toString(),
-        ...(status && { status }),
-      });
-      const res = await callApi(`${API_URL}/api/payments/admin/withdrawals?${params}`, { 
+      const res = await callApi(`${API_URL}/api/payments/admin/withdrawals`, { 
         headers: { Authorization: `Bearer ${token}` } 
       }, dispatch, getState);
       const data = await res.json();
-      return { payments: data.payments as Payment[], pagination: data.pagination };
+      return data.payments as Payment[];
     } catch (e: any) {
       return rejectWithValue(e.message);
     }
@@ -159,6 +133,7 @@ export const createPaymentThunk = createAsyncThunk(
     audience?: "user" | "advertiser";
     iban?: string;
     fullName?: string;
+    withdrawalType?: "earned" | "referral";
   }, { dispatch, getState, rejectWithValue }) => {
     try {
       const token = (getState() as any).auth.token;
@@ -253,8 +228,7 @@ const paymentsSlice = createSlice({
       })
       .addCase(fetchAllPaymentsThunk.fulfilled, (state, action) => {
         state.status = "succeeded";
-        state.allPayments = action.payload.payments;
-        state.allPaymentsPagination = action.payload.pagination;
+        state.allPayments = action.payload;
       })
       .addCase(fetchAllPaymentsThunk.rejected, (state, action) => {
         state.status = "failed";
@@ -268,8 +242,7 @@ const paymentsSlice = createSlice({
       })
       .addCase(fetchUserWithdrawalsThunk.fulfilled, (state, action) => {
         state.status = "succeeded";
-        state.userWithdrawals = action.payload.payments;
-        state.withdrawalsPagination = action.payload.pagination;
+        state.userWithdrawals = action.payload;
       })
       .addCase(fetchUserWithdrawalsThunk.rejected, (state, action) => {
         state.status = "failed";

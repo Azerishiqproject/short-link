@@ -1,5 +1,6 @@
 "use client";
 import React from "react";
+import { useRouter } from "next/navigation";
 import { Section } from "@/components/ui/Section";
 import { Button } from "@/components/ui/Button";
 import { BlurSpot } from "@/components/ui/BlurSpot";
@@ -72,6 +73,8 @@ const valuesItem = {
 };
 
 export default function AboutPage() {
+  const router = useRouter();
+  
   return (
     <MotionConfig reducedMotion="user">
       <motion.div
@@ -110,10 +113,10 @@ export default function AboutPage() {
               </motion.p>
               <div className="flex flex-wrap items-center justify-center lg:justify-start gap-3">
                 <motion.div className="w-full sm:w-auto" whileHover={{ scale: 1.05 }} whileTap={{ scale: 0.97 }}>
-                  <Button size="lg" className="w-full sm:w-auto">Hemen Başla</Button>
+                  <Button onClick={() => router.push("/register")} size="lg" className="w-full sm:w-auto">Hemen Başla</Button>
                 </motion.div>
                 <motion.div className="w-full sm:w-auto" whileHover={{ scale: 1.05 }} whileTap={{ scale: 0.97 }}>
-                  <Button variant="secondary" size="lg" className="w-full sm:w-auto">İletişime Geç</Button>
+                  <Button onClick={() => router.push("/contact")} variant="secondary" size="lg" className="w-full sm:w-auto">İletişime Geç</Button>
                 </motion.div>
               </div>
             </motion.div>
@@ -385,10 +388,10 @@ export default function AboutPage() {
           <p className="mt-2 text-muted">Hemen ücretsiz hesap oluştur ve önemli olanı ölçmeye başla.</p>
           <div className="mt-6 flex items-center justify-center gap-3">
             <motion.div whileHover={{ scale: 1.05 }} whileTap={{ scale: 0.97 }}>
-              <Button size="lg">Hesap Oluştur</Button>
+              <Button onClick={() => router.push("/register")} size="lg">Hesap Oluştur</Button>
             </motion.div>
             <motion.div whileHover={{ scale: 1.05 }} whileTap={{ scale: 0.97 }}>
-              <Button variant="secondary" size="lg">İletişime Geç</Button>
+              <Button onClick={() => router.push("/contact")} variant="secondary" size="lg">İletişime Geç</Button>
             </motion.div>
           </div>
         </motion.div>

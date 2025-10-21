@@ -1,9 +1,18 @@
 "use client";
 
+export const dynamic = 'force-dynamic';
+
 import { Section } from "@/components/ui/Section";
 import { BlurSpot } from "@/components/ui/BlurSpot";
 import { Card } from "../../components/ui/Card";
-import { AdminSidebar, UsersList, PricingManager, PaymentsManager } from "@/components/admin";
+import { AdminSidebar, UsersList, PricingManager, PaymentsManager, AdminSupport } from "@/components/admin";
+import dynamicImport from "next/dynamic";
+
+const BlogManager = dynamicImport(() => import("@/components/admin/BlogManager"), {
+  ssr: false,
+  loading: () => <div className="p-4">Blog Manager yükleniyor...</div>
+});
+import ReferralManager from "@/components/admin/ReferralManager";
 import SidebarNav from "@/components/panel/SidebarNav";
 import WithdrawalManager from "@/components/admin/WithdrawalManager";
 import Pagination from "@/components/common/Pagination";
@@ -26,7 +35,7 @@ export default function SecretDashboard() {
   const [detailUser, setDetailUser] = useState<ApiUser | null>(null);
   const [detailData, setDetailData] = useState<any | null>(null);
   const [detailLoading, setDetailLoading] = useState(false);
-  const [activeTab, setActiveTab] = useState<"users" | "pricing" | "payments" | "withdrawals">("users");
+  const [activeTab, setActiveTab] = useState<"users" | "pricing" | "payments" | "withdrawals" | "support" | "blog" | "referrals">("users");
   const [currentPage, setCurrentPage] = useState(1);
   const [pageSize, setPageSize] = useState(20);
   const [detailCurrentPage, setDetailCurrentPage] = useState(1);
@@ -51,21 +60,19 @@ export default function SecretDashboard() {
   };
 
   useEffect(() => {
-    console.log("Admin dashboard effect - hydrated:", hydrated, "token:", !!token, "user:", user);
     if (!hydrated) return;
     if (!token) {
       router.replace("/login");
       return;
     }
     if (user?.role !== "admin") {
-      console.log("User role is not admin:", user?.role);
       router.replace("/");
       return;
     }
     // Users/Config fetched in Redux
     dispatch(fetchPricingThunk());
     // Preload all payments for admin views (used in user detail)
-    dispatch<any>(fetchAllPaymentsThunk({ page: 1, limit: 100 })).catch(()=>{});
+    dispatch<any>(fetchAllPaymentsThunk()).catch(()=>{});
     // Fetch users with pagination
     dispatch<any>(fetchAllUsersThunk({ token, page: currentPage, limit: pageSize }));
   }, [hydrated, token, user?.role, router, dispatch, currentPage, pageSize]);
@@ -77,6 +84,9 @@ export default function SecretDashboard() {
         { key: "pricing", label: "Fiyatlandırma", icon: <svg className='w-4 h-4' viewBox="0 0 24 24" fill="none" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-10v.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"/></svg> },
         { key: "payments", label: "Ödemeler", icon: <svg className='w-4 h-4' viewBox="0 0 24 24" fill="none" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M17 9V7a2 2 0 00-2-2H5a2 2 0 00-2 2v2m14 0H3m14 0v6a2 2 0 01-2 2H5a2 2 0 01-2-2V9m16 0h2m-2 0v6a2 2 0 002 2h0a2 2 0 002-2V9h-2"/></svg> },
         { key: "withdrawals", label: "Çekimler", icon: <svg className='w-4 h-4' viewBox="0 0 24 24" fill="none" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-10v.01M5 12H3m18 0h-2"/></svg> },
+        { key: "support", label: "Destek", icon: <svg className='w-4 h-4' viewBox="0 0 24 24" fill="none" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M8 10h.01M12 10h.01M16 10h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4-.8L3 20l.8-3.2A7.7 7.7 0 013 12c0-4.418 4.03-8 9-8s9 3.582 9 8z"/></svg> },
+        { key: "blog", label: "Blog", icon: <svg className='w-4 h-4' viewBox="0 0 24 24" fill="none" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z"/></svg> },
+        { key: "referrals", label: "Referanslar", icon: <svg className='w-4 h-4' viewBox="0 0 24 24" fill="none" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 4.354a4 4 0 110 5.292M15 21H3v-1a6 6 0 0112 0v1zm0 0h6v-1a6 6 0 00-9-5.197m13.5-9a2.5 2.5 0 11-5 0 2.5 2.5 0 015 0z"/></svg> },
       ] as { key: string; label: string; icon: React.ReactElement }[])}
       activeKey={activeTab}
       onSelect={(k)=>setActiveTab(k as any)}
@@ -112,50 +122,24 @@ export default function SecretDashboard() {
                     {activeTab === "users" ? "Kullanıcılar" : 
                      activeTab === "pricing" ? "Fiyatlandırma" : 
                      activeTab === "payments" ? "Ödemeler" : 
-                     "Çekim Yönetimi"}
+                     activeTab === "withdrawals" ? "Çekim Yönetimi" : 
+                     activeTab === "support" ? "Destek" : 
+                     activeTab === "blog" ? "Blog Yönetimi" : 
+                     activeTab === "referrals" ? "Referans Yönetimi" : ""}
                   </h1>
                 </div>
                 <div className="flex-1 flex flex-col">
             {activeTab === "users" && (
               <>
                 <div className="flex-1">
-                  <UsersList onDetail={async (u: ApiUser)=>{
-                    setDetailUser(u);
-                    setDetailData(null);
-                    setDetailLoading(true);
-                    setDetailCurrentPage(1);
-                    setDetailPageSize(10);
-                    try {
-                      if (u.role === "advertiser") {
-                        const userId = String(u._id || u.id);
-                        const r:any = await dispatch<any>(fetchAdminUserCampaignSummaryThunk(userId));
-                        if (r.meta.requestStatus === 'fulfilled') {
-                          setDetailData({ type: "advertiser", ...(r.payload as any).data });
-                        } else {
-                          setDetailData({ type: "advertiser", campaigns: [], totals: { count: 0, totalBudget: 0, totalSpent: 0 } });
-                        }
-                      } else {
-                        // Use Redux-loaded payments instead of fetching here
-                        const userId = String(u._id || u.id);
-                        const list = (allPayments || []).filter((p:any)=> String(p.ownerId) === userId);
-                        setDetailData({ type: "user", payments: list });
-                      }
-                    } catch (e) { console.error(e); }
-                    finally { setDetailLoading(false); }
-                  }} />
+                  <UsersList />
                 </div>
                 {pagination && (
                   <div className="mt-4">
                     <Pagination
                       currentPage={currentPage}
                       totalPages={pagination.totalPages}
-                      totalItems={pagination.total}
-                      pageSize={pageSize}
                       onPageChange={handlePageChange}
-                      onPageSizeChange={handlePageSizeChange}
-                      pageSizeOptions={[10, 20, 50, 100]}
-                      showPageSizeSelector={true}
-                      showItemCount={true}
                     />
                   </div>
                 )}
@@ -169,6 +153,15 @@ export default function SecretDashboard() {
                 )}
                 {activeTab === "withdrawals" && (
                   <WithdrawalManager />
+                )}
+                {activeTab === "support" && (
+                  <AdminSupport />
+                )}
+                {activeTab === "blog" && (
+                  <BlogManager />
+                )}
+                {activeTab === "referrals" && (
+                  <ReferralManager />
                 )}
                 </div>
               </div>
@@ -223,13 +216,7 @@ export default function SecretDashboard() {
                                     <Pagination
                                       currentPage={detailCurrentPage}
                                       totalPages={totalPages}
-                                      totalItems={campaigns.length}
-                                      pageSize={detailPageSize}
                                       onPageChange={handleDetailPageChange}
-                                      onPageSizeChange={handleDetailPageSizeChange}
-                                      pageSizeOptions={[5, 10, 20]}
-                                      showPageSizeSelector={true}
-                                      showItemCount={true}
                                     />
                                   </div>
                                 )}
@@ -271,13 +258,7 @@ export default function SecretDashboard() {
                                   <Pagination
                                     currentPage={detailCurrentPage}
                                     totalPages={totalPages}
-                                    totalItems={payments.length}
-                                    pageSize={detailPageSize}
                                     onPageChange={handleDetailPageChange}
-                                    onPageSizeChange={handleDetailPageSizeChange}
-                                    pageSizeOptions={[5, 10, 20]}
-                                    showPageSizeSelector={true}
-                                    showItemCount={true}
                                   />
                                 </div>
                               )}

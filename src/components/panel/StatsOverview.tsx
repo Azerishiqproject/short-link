@@ -65,7 +65,7 @@ export default function StatsOverview({
         <div className="bg-white dark:bg-slate-800 rounded-xl border border-slate-200 dark:border-slate-700 p-6 shadow-sm">
           <div className="flex items-center justify-between">
             <div>
-              <p className="text-sm font-medium text-slate-600 dark:text-slate-400 mb-1">Toplam Kazanç</p>
+              <p className="text-sm font-medium text-slate-600 dark:text-slate-400 mb-1">Toplam Bakiye</p>
               <p className="text-2xl font-bold text-slate-900 dark:text-white">{totalEarnings.toFixed(4)} ₺</p>
             </div>
             <div className="w-12 h-12 bg-slate-100 dark:bg-slate-700 rounded-lg flex items-center justify-center">
@@ -79,19 +79,26 @@ export default function StatsOverview({
 
       {/* Charts Section */}
       <div className="grid grid-cols-1 gap-6">
-        {/* Range selector above trend */}
-        <div className="flex items-center justify-between">
-          <div className="text-sm font-semibold text-slate-900 dark:text-white">Tıklama Trendi</div>
-          {onDaysChange && (
-            <div className="flex items-center gap-2">
-              <span className="text-xs text-slate-600 dark:text-slate-400">Zaman aralığı:</span>
-              <button onClick={()=>onDaysChange(7)} className={`px-3 py-1 rounded text-xs border ${days===7? 'bg-slate-900 text-white dark:bg-white dark:text-slate-900':'bg-white dark:bg-slate-800 text-slate-700 dark:text-slate-300'} border-slate-300 dark:border-slate-600`}>1 Hafta</button>
-              <button onClick={()=>onDaysChange(30)} className={`px-3 py-1 rounded text-xs border ${days===30? 'bg-slate-900 text-white dark:bg-white dark:text-slate-900':'bg-white dark:bg-slate-800 text-slate-700 dark:text-slate-300'} border-slate-300 dark:border-slate-600`}>1 Ay</button>
-              <button onClick={()=>onDaysChange(365)} className={`px-3 py-1 rounded text-xs border ${days===365? 'bg-slate-900 text-white dark:bg-white dark:text-slate-900':'bg-white dark:bg-slate-800 text-slate-700 dark:text-slate-300'} border-slate-300 dark:border-slate-600`}>1 Yıl</button>
-            </div>
-          )}
+        {/* Reliable clickable range selector placed outside of the chart canvas */}
+        <div className="flex items-center justify-end gap-2 mt-2 mb-3 relative z-50 pointer-events-auto">
+          <span className="text-xs text-slate-600 dark:text-slate-400">Zaman aralığı:</span>
+          <div className="flex items-center gap-2">
+            <input id="range-1" type="radio" name="stats-range" className="sr-only" checked={days===1} onChange={()=>onDaysChange?.(1)} />
+            <label htmlFor="range-1" className={`px-3 py-1 rounded text-xs border cursor-pointer select-none ${days===1? 'bg-slate-900 text-white dark:bg-white dark:text-slate-900':'bg-white dark:bg-slate-800 text-slate-700 dark:text-slate-300'} border-slate-300 dark:border-slate-600`}>24 Saat</label>
+
+            <input id="range-7" type="radio" name="stats-range" className="sr-only" checked={days===7} onChange={()=>onDaysChange?.(7)} />
+            <label htmlFor="range-7" className={`px-3 py-1 rounded text-xs border cursor-pointer select-none ${days===7? 'bg-slate-900 text-white dark:bg-white dark:text-slate-900':'bg-white dark:bg-slate-800 text-slate-700 dark:text-slate-300'} border-slate-300 dark:border-slate-600`}>7 Gün</label>
+
+            <input id="range-30" type="radio" name="stats-range" className="sr-only" checked={days===30} onChange={()=>onDaysChange?.(30)} />
+            <label htmlFor="range-30" className={`px-3 py-1 rounded text-xs border cursor-pointer select-none ${days===30? 'bg-slate-900 text-white dark:bg-white dark:text-slate-900':'bg-white dark:bg-slate-800 text-slate-700 dark:text-slate-300'} border-slate-300 dark:border-slate-600`}>1 Ay</label>
+
+            <input id="range-365" type="radio" name="stats-range" className="sr-only" checked={days===365} onChange={()=>onDaysChange?.(365)} />
+            <label htmlFor="range-365" className={`px-3 py-1 rounded text-xs border cursor-pointer select-none ${days===365? 'bg-slate-900 text-white dark:bg-white dark:text-slate-900':'bg-white dark:bg-slate-800 text-slate-700 dark:text-slate-300'} border-slate-300 dark:border-slate-600`}>1 Yıl</label>
+          </div>
         </div>
-        <ClickChart data={clickData} />
+        <div className="relative z-0">
+          <ClickChart data={clickData} days={days} />
+        </div>
         <GeographicHeatmap data={countryData} />
       </div>
     </div>

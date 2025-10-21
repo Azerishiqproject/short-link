@@ -1,6 +1,8 @@
 "use client";
 
 import Pagination from "../common/Pagination";
+import UserDetailModal from "./UserDetailModal";
+import { useState } from "react";
 
 type ApiUser = { id?: string; _id?: string; email: string; name?: string; role: string; createdAt?: string; balance?: number; available_balance?: number; reserved_balance?: number; display_available?: number; display_reserved?: number; earned_balance?: number; reserved_earned_balance?: number };
 
@@ -34,11 +36,21 @@ export default function UsersTable({
   onPageChange, 
   onPageSizeChange 
 }: UsersTableProps) {
+  const [selectedUser, setSelectedUser] = useState<ApiUser | null>(null);
+
+  const handleDetail = (user: ApiUser) => {
+    setSelectedUser(user);
+  };
+
+  const handleCloseModal = () => {
+    setSelectedUser(null);
+  };
+
   if (loading) return <p className="text-slate-600 dark:text-slate-400">Yükleniyor...</p>;
   if (error) return <p className="text-red-600 text-sm">{error}</p>;
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-4">
       {/* Users Table */}
       <div className="overflow-x-auto">
         <table className="min-w-full text-sm text-slate-900 dark:text-white">
@@ -70,7 +82,7 @@ export default function UsersTable({
                   })()}
                 </td>
                 <td className="py-2 pr-4">
-                  <button onClick={() => onDetail?.(u)} className="h-8 px-3 rounded-lg border border-black/10 dark:border-white/10 hover:bg-slate-100 dark:hover:bg-slate-700 text-xs">Detay</button>
+                  <button onClick={() => handleDetail(u)} className="h-8 px-3 rounded-lg border border-black/10 dark:border-white/10 hover:bg-slate-100 dark:hover:bg-slate-700 text-xs">Detay</button>
                 </td>
               </tr>
             ))}
@@ -78,20 +90,21 @@ export default function UsersTable({
         </table>
       </div>
 
-      {/* Pagination Controls - Only show if pagination data is provided */}
+      {/* Pagination Controls */}
       {pagination && (
         <Pagination
           currentPage={currentPage}
           totalPages={pagination.totalPages}
-          totalItems={pagination.total}
-          pageSize={pageSize}
           onPageChange={onPageChange}
-          onPageSizeChange={onPageSizeChange}
-          pageSizeOptions={[10, 20, 50, 100]}
-          showPageSizeSelector={true}
-          showItemCount={true}
         />
       )}
+
+      {/* User Detail Modal */}
+      <UserDetailModal 
+        user={selectedUser} 
+        isOpen={!!selectedUser} 
+        onClose={handleCloseModal} 
+      />
     </div>
   );
 }

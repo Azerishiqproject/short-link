@@ -66,10 +66,7 @@ export function Features() {
                   <div>
                     <div className="text-lg font-semibold tracking-tight">{f.title}</div>
                     <p className="mt-1 text-sm text-muted-foreground leading-relaxed">{f.description}</p>
-                    <div className="mt-4 inline-flex items-center text-[12px] text-foreground/70">
-                      İncele
-                      <svg className="ml-1 h-3.5 w-3.5" viewBox="0 0 24 24" fill="none"><path d="M5 12h14m-6-6 6 6-6 6" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round"/></svg>
-                    </div>
+                   
                   </div>
                 </div>
               </motion.div>

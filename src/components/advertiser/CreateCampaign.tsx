@@ -12,10 +12,7 @@ interface CreateCampaignProps {
 }
 
 const adTypes = [
-  { id: "google_review", name: "Google Yorum Yaptırma", price: 0.15 },
-  { id: "website_traffic", name: "Site Trafiği", price: 0.08 },
-  { id: "video_views", name: "Video İzletme", price: 0.12 },
-  { id: "like_follow", name: "Beğeni Takip", price: 0.20 }
+  { id: "website_traffic", name: "Site Trafiği", price: 0.08 }
 ];
 
 const fallbackCountries = [
@@ -57,11 +54,20 @@ export default function CreateCampaign({ onClose }: CreateCampaignProps) {
 
   const defaultUnit = useMemo(() => adTypes.find(t => t.id === formData.type)?.price ?? 0, [formData.type]);
   const unitPrice = useMemo(() => {
-    const match = (pricing || []).find(
+    // Önce belirli ülke kodunu ara
+    let match = (pricing || []).find(
       (p) => p.audience === "advertiser" && p.country === formData.country
     );
+    
+    // Eğer bulunamazsa DF (default) ülke kodunu ara
+    if (!match) {
+      match = (pricing || []).find(
+        (p) => p.audience === "advertiser" && p.country === "DF"
+      );
+    }
+    
     if (!match) return defaultUnit;
-    const perThousand = match.rates?.[formData.type];
+    const perThousand = match.rates.website_traffic;
     if (typeof perThousand !== "number") return defaultUnit;
     // convert ₺/1000 -> ₺/click
     return perThousand / 1000;

@@ -4,7 +4,7 @@ import { useState, FormEvent, useEffect } from "react";
 import { useAppDispatch, useAppSelector } from "@/store";
 import { updateProfileThunk, fetchMeThunk, changePasswordThunk } from "@/store/slices/authSlice";
 import { Button } from "@/components/ui/Button";
-import { FiUser, FiMail, FiCheck, FiLock, FiCreditCard, FiEdit3 } from "react-icons/fi";
+import { FiUser, FiMail, FiCheck, FiLock, FiCreditCard, FiEdit3, FiUsers, FiCopy } from "react-icons/fi";
 
 export default function Settings() {
   const { user, token, status } = useAppSelector((s) => s.auth);
@@ -23,6 +23,9 @@ export default function Settings() {
   const [paymentDescription, setPaymentDescription] = useState(user?.paymentDescription || "");
   const [ibanMsg, setIbanMsg] = useState<string | null>(null);
   const [showIbanForm, setShowIbanForm] = useState(false);
+
+  // Referans kodu için state
+  const [referralCopied, setReferralCopied] = useState(false);
 
   // IBAN bilgilerinin mevcut olup olmadığını kontrol et
   const hasIbanInfo = !!(user?.iban && user?.fullName && user?.paymentDescription);
@@ -101,6 +104,19 @@ export default function Settings() {
     setIban(formatIban(e.target.value));
   };
 
+  // Referans kodu kopyalama fonksiyonu
+  const copyReferralCode = async () => {
+    if (user?.referralCode && typeof window !== 'undefined') {
+      try {
+        await navigator.clipboard.writeText(user.referralCode);
+        setReferralCopied(true);
+        setTimeout(() => setReferralCopied(false), 2000);
+      } catch (err) {
+        console.error('Referans kodu kopyalanamadı:', err);
+      }
+    }
+  };
+
   return (
     <div className="space-y-8">
       {/* Header */}
@@ -124,7 +140,7 @@ export default function Settings() {
       <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
         {/* Profile Card */}
         <div className="relative overflow-hidden rounded-2xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 shadow-sm">
-          <div className="absolute inset-x-0 -top-24 h-40 bg-gradient-to-r from-blue-500/10 via-purple-500/10 to-indigo-500/10 blur-2xl" />
+          <div className="absolute inset-x-0 -top-24 h-40 bg-gradient-to-r from-blue-500/10 via-purple-500/10 to-indigo-500/10 blur-2xl pointer-events-none" />
           <div className="relative p-6">
             <div className="mb-5 flex items-center gap-3">
               <div className="w-9 h-9 rounded-lg bg-blue-500/10 text-blue-600 dark:text-blue-300 flex items-center justify-center">
@@ -178,7 +194,7 @@ export default function Settings() {
 
         {/* Password Card */}
         <div className="relative overflow-hidden rounded-2xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 shadow-sm">
-          <div className="absolute inset-x-0 -top-24 h-40 bg-gradient-to-r from-emerald-500/10 via-teal-500/10 to-cyan-500/10 blur-2xl" />
+          <div className="absolute inset-x-0 -top-24 h-40 bg-gradient-to-r from-emerald-500/10 via-teal-500/10 to-cyan-500/10 blur-2xl pointer-events-none" />
           <div className="relative p-6">
             <div className="mb-5 flex items-center gap-3">
               <div className="w-9 h-9 rounded-lg bg-emerald-500/10 text-emerald-600 dark:text-emerald-300 flex items-center justify-center">
@@ -232,7 +248,7 @@ export default function Settings() {
 
         {/* IBAN Card */}
         <div className="relative overflow-hidden rounded-2xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 shadow-sm md:col-span-2">
-          <div className="absolute inset-x-0 -top-24 h-40 bg-gradient-to-r from-amber-500/10 via-orange-500/10 to-red-500/10 blur-2xl" />
+          <div className="absolute inset-x-0 -top-24 h-40 bg-gradient-to-r from-amber-500/10 via-orange-500/10 to-red-500/10 blur-2xl pointer-events-none" />
           <div className="relative p-6">
             <div className="mb-5 flex items-center gap-3">
               <div className="w-9 h-9 rounded-lg bg-amber-500/10 text-amber-600 dark:text-amber-300 flex items-center justify-center">
@@ -358,6 +374,99 @@ export default function Settings() {
               </div>
               </form>
             )}
+          </div>
+        </div>
+
+        {/* Referans Kodu Card */}
+        <div className="relative overflow-hidden rounded-2xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 shadow-sm md:col-span-2">
+          <div className="absolute inset-x-0 -top-24 h-40 bg-gradient-to-r from-green-500/10 via-emerald-500/10 to-teal-500/10 blur-2xl pointer-events-none" />
+          <div className="relative p-6">
+            <div className="mb-5 flex items-center gap-3">
+              <div className="w-9 h-9 rounded-lg bg-green-500/10 text-green-600 dark:text-green-300 flex items-center justify-center">
+                <FiUsers className="w-4 h-4" />
+              </div>
+              <h3 className="text-lg font-semibold text-slate-900 dark:text-white">Referans Kodu</h3>
+            </div>
+
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+              {/* Left: Referral code and stats */}
+              <div className="space-y-4">
+                <div>
+                  <label className="block text-xs font-medium text-slate-500 dark:text-slate-400 mb-2">Sizin Referans Kodunuz</label>
+                  <div className="flex items-center gap-2">
+                    <div className="flex-1 relative">
+                      <input
+                        className="w-full h-11 rounded-lg border border-slate-200 dark:border-slate-600 bg-slate-50 dark:bg-slate-700 text-slate-900 dark:text-white px-3 pr-10 focus:outline-none focus:ring-2 focus:ring-green-500 text-sm font-mono text-center"
+                        value={user?.referralCode || "Yükleniyor..."}
+                        readOnly
+                        style={{ textTransform: 'uppercase' }}
+                      />
+                      <div className="absolute right-3 top-1/2 -translate-y-1/2">
+                        <span className="text-xs font-semibold text-green-600 dark:text-green-400 bg-green-100 dark:bg-green-900/30 px-2 py-1 rounded">
+                          6 KARAKTER
+                        </span>
+                      </div>
+                    </div>
+                    <Button
+                      type="button"
+                      onClick={copyReferralCode}
+                      disabled={!user?.referralCode}
+                      className="h-11 px-4 bg-green-500 hover:bg-green-600 text-white"
+                    >
+                      <FiCopy className="w-4 h-4" />
+                    </Button>
+                  </div>
+                  {referralCopied && (
+                    <p className="mt-1 text-xs text-green-600 dark:text-green-400">
+                      ✓ Referans kodu kopyalandı!
+                    </p>
+                  )}
+                  <p className="mt-1 text-xs text-slate-500 dark:text-slate-400">
+                    Bu kodu arkadaşlarınızla paylaşarak onları davet edebilirsiniz
+                  </p>
+                </div>
+
+                <div className="grid grid-cols-3 gap-4 pt-4 border-t border-slate-200 dark:border-slate-700">
+                  <div className="text-center">
+                    <div className="text-2xl font-bold text-slate-900 dark:text-white">
+                      {user?.referralCount || 0}
+                    </div>
+                    <div className="text-xs text-slate-500 dark:text-slate-400">
+                      Referans Edilen
+                    </div>
+                  </div>
+                  <div className="text-center">
+                    <div className="text-2xl font-bold text-slate-900 dark:text-white">
+                      {user?.referredBy ? "✓" : "—"}
+                    </div>
+                    <div className="text-xs text-slate-500 dark:text-slate-400">
+                      Referans Edildi
+                    </div>
+                  </div>
+                  <div className="text-center">
+                    <div className="text-2xl font-bold text-green-600 dark:text-green-400">
+                      ₺{(user?.referral_earned || 0).toFixed(2)}
+                    </div>
+                    <div className="text-xs text-slate-500 dark:text-slate-400">
+                      Referans Kazancı
+                    </div>
+                  </div>
+                </div>
+              </div>
+
+              {/* Right: Info box */}
+              <div className="bg-slate-50 dark:bg-slate-700/50 rounded-lg p-4 h-full">
+                <h4 className="text-sm font-semibold text-slate-900 dark:text-white mb-2">
+                  Referans Sistemi Nasıl Çalışır?
+                </h4>
+                <ul className="text-xs text-slate-600 dark:text-slate-400 space-y-1">
+                  <li>• Referans kodunuzu arkadaşlarınızla paylaşın</li>
+                  <li>• Onlar kayıt olurken sizin kodunuzu girerler</li>
+                  <li>• Her referans için ödül kazanabilirsiniz</li>
+                  <li>• Referans sayınızı buradan takip edebilirsiniz</li>
+                </ul>
+              </div>
+            </div>
           </div>
         </div>
       </div>

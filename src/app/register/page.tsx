@@ -21,6 +21,7 @@ export default function Register() {
     password: "",
     confirmPassword: "",
     userType: "user" as "user" | "advertiser",
+    referralCode: "",
     acceptTerms: false,
     acceptMarketing: false
   });
@@ -34,31 +35,44 @@ export default function Register() {
     const newErrors: {[key: string]: string} = {};
     
     if (!formData.firstName.trim()) {
-      newErrors.firstName = "Ad gereklidir";
+      newErrors.firstName = "Lütfen adınızı girin";
+    } else if (formData.firstName.trim().length < 2) {
+      newErrors.firstName = "Ad en az 2 karakter olmalıdır";
     }
     
     if (!formData.lastName.trim()) {
-      newErrors.lastName = "Soyad gereklidir";
+      newErrors.lastName = "Lütfen soyadınızı girin";
+    } else if (formData.lastName.trim().length < 2) {
+      newErrors.lastName = "Soyad en az 2 karakter olmalıdır";
     }
     
     if (!formData.email.trim()) {
-      newErrors.email = "E-posta gereklidir";
+      newErrors.email = "Lütfen e-posta adresinizi girin";
     } else if (!/\S+@\S+\.\S+/.test(formData.email)) {
-      newErrors.email = "Geçerli bir e-posta adresi girin";
+      newErrors.email = "Geçerli bir e-posta adresi girin (örn: ornek@email.com)";
     }
     
     if (!formData.password) {
-      newErrors.password = "Şifre gereklidir";
+      newErrors.password = "Lütfen şifrenizi girin";
     } else if (formData.password.length < 8) {
       newErrors.password = "Şifre en az 8 karakter olmalıdır";
+    } else if (!/(?=.*[a-z])(?=.*[A-Z])(?=.*\d)/.test(formData.password)) {
+      newErrors.password = "Şifre en az bir büyük harf, bir küçük harf ve bir rakam içermelidir";
     }
     
-    if (formData.password !== formData.confirmPassword) {
-      newErrors.confirmPassword = "Şifreler eşleşmiyor";
+    if (!formData.confirmPassword) {
+      newErrors.confirmPassword = "Lütfen şifrenizi tekrar girin";
+    } else if (formData.password !== formData.confirmPassword) {
+      newErrors.confirmPassword = "Şifreler eşleşmiyor. Lütfen aynı şifreyi girin";
     }
     
     if (!formData.acceptTerms) {
-      newErrors.acceptTerms = "Kullanım koşullarını kabul etmelisiniz";
+      newErrors.acceptTerms = "Devam edebilmek için kullanım koşullarını kabul etmelisiniz";
+    }
+    
+    // Referans kodu kontrolü (opsiyonel)
+    if (formData.referralCode && formData.referralCode.length !== 6) {
+      newErrors.referralCode = "Referans kodu 6 karakter olmalıdır";
     }
     
     setErrors(newErrors);
@@ -69,6 +83,7 @@ export default function Register() {
         password: formData.password,
         name: `${formData.firstName} ${formData.lastName}`.trim(),
         role: formData.userType,
+        referralCode: formData.referralCode || undefined,
       }));
     }
   };
@@ -88,10 +103,20 @@ export default function Register() {
 
   const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const { name, value, type, checked } = e.target;
-    setFormData(prev => ({
-      ...prev,
-      [name]: type === 'checkbox' ? checked : value
-    }));
+    
+    // Referans kodu için özel işlem
+    if (name === 'referralCode') {
+      const upperValue = value.toUpperCase().replace(/[^A-Z0-9]/g, '').slice(0, 6);
+      setFormData(prev => ({
+        ...prev,
+        [name]: upperValue
+      }));
+    } else {
+      setFormData(prev => ({
+        ...prev,
+        [name]: type === 'checkbox' ? checked : value
+      }));
+    }
     
     // Clear error when user starts typing
     if (errors[name]) {
@@ -191,12 +216,38 @@ export default function Register() {
                 )}
               </div>
 
+              {/* Referral Code */}
+              <div>
+                <label htmlFor="referralCode" className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-2">
+                  Referans Kodu <span className="text-slate-400 text-xs">(Opsiyonel)</span>
+                </label>
+                <input
+                  type="text"
+                  id="referralCode"
+                  name="referralCode"
+                  value={formData.referralCode}
+                  onChange={handleChange}
+                  className={`w-full h-12 rounded-xl text-base border px-4 shadow-soft focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all duration-300 bg-white dark:bg-slate-700 text-slate-900 dark:text-white ${
+                    errors.referralCode ? 'border-red-500' : 'border-black/10 dark:border-white/20'
+                  }`}
+                  placeholder="ABC123"
+                  maxLength={6}
+                  style={{ textTransform: 'uppercase' }}
+                />
+                {errors.referralCode && (
+                  <p className="mt-1 text-sm text-red-500">{errors.referralCode}</p>
+                )}
+                <p className="mt-1 text-xs text-slate-500 dark:text-slate-400">
+                  Bir arkadaşınızın referans kodunu girerek kayıt olabilirsiniz
+                </p>
+              </div>
+
               {/* User Type */}
               <div>
                 <label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-3">
                   Hesap Türü
                 </label>
-                <div className="grid grid-cols-2 gap-4">
+                <div className="grid grid-cols-1 gap-4">
                   {/* Görev Yapan */}
                   <label
                     className={`relative overflow-hidden flex items-center justify-center p-5 rounded-2xl border transition-all duration-200 cursor-pointer shadow-sm backdrop-blur ${
@@ -240,8 +291,8 @@ export default function Register() {
                     )}
                   </label>
 
-                  {/* Reklam Veren */}
-                  <label
+                  {/* Reklam Veren - Geçici olarak kaldırıldı */}
+                  {/* <label
                     className={`relative overflow-hidden flex items-center justify-center p-5 rounded-2xl border transition-all duration-200 cursor-pointer shadow-sm backdrop-blur ${
                       formData.userType === "advertiser"
                         ? "border-purple-500/60 ring-2 ring-purple-500 ring-offset-2 ring-offset-white dark:ring-offset-slate-900 bg-gradient-to-br from-purple-500/10 to-fuchsia-500/10"
@@ -257,10 +308,8 @@ export default function Register() {
                       className="sr-only"
                     />
 
-                    {/* Accent dot */}
                     <span className="absolute left-3 top-3 w-2.5 h-2.5 rounded-full bg-purple-500/80" />
 
-                    {/* Checkmark */}
                     {formData.userType === "advertiser" && (
                       <span className="absolute right-3 top-3 text-purple-600 dark:text-purple-400">
                         <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7"/></svg>
@@ -277,11 +326,10 @@ export default function Register() {
                       <div className="text-xs text-slate-500 dark:text-slate-400">Kampanya yönetimi</div>
                     </div>
 
-                    {/* Glow */}
                     {formData.userType === "advertiser" && (
                       <span className="pointer-events-none absolute -inset-10 bg-purple-500/10 blur-2xl" />
                     )}
-                  </label>
+                  </label> */}
                 </div>
               </div>
 
@@ -299,7 +347,7 @@ export default function Register() {
                   className={`w-full h-12 rounded-xl text-base border px-4 shadow-soft focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all duration-300 bg-white dark:bg-slate-700 text-slate-900 dark:text-white ${
                     errors.password ? 'border-red-500' : 'border-black/10 dark:border-white/20'
                   }`}
-                  placeholder="En az 8 karakter"
+                  placeholder="En az 8 karakter (büyük harf, küçük harf, rakam)"
                 />
                 {errors.password && (
                   <p className="mt-1 text-sm text-red-500">{errors.password}</p>
@@ -370,9 +418,28 @@ export default function Register() {
 
               {/* Submit Button */}
               <Button type="submit" size="lg" className="w-full">
-                {status === "loading" ? "Gönderiliyor..." : "Hesap Oluştur"}
+                {status === "loading" ? "Hesap oluşturuluyor..." : "Hesap Oluştur"}
               </Button>
-              {error && <p className="text-red-600 text-sm">{error}</p>}
+              {error && (
+                <div className="p-3 bg-red-50 dark:bg-red-950/30 border border-red-200 dark:border-red-800/50 rounded-lg">
+                  <p className="text-red-600 dark:text-red-400 text-sm">
+                    {error === "Email already exists" 
+                      ? "Bu e-posta adresi zaten kullanılıyor. Farklı bir e-posta adresi deneyin veya giriş yapın."
+                      : error === "Invalid email format"
+                      ? "Geçersiz e-posta formatı. Lütfen doğru formatta bir e-posta adresi girin."
+                      : error === "Password too weak"
+                      ? "Şifre çok zayıf. Lütfen daha güçlü bir şifre seçin."
+                      : error === "Registration failed"
+                      ? "Kayıt işlemi başarısız oldu. Lütfen tekrar deneyin."
+                      : error === "Server error"
+                      ? "Sunucu hatası oluştu. Lütfen daha sonra tekrar deneyin."
+                      : error === "Geçersiz referans kodu"
+                      ? "Girdiğiniz referans kodu geçersiz. Lütfen doğru kodu girin veya boş bırakın."
+                      : "Hesap oluşturulurken bir hata oluştu. Lütfen tekrar deneyin."
+                    }
+                  </p>
+                </div>
+              )}
 
               {/* Divider */}
               <div className="relative">

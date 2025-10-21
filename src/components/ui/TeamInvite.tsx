@@ -3,8 +3,9 @@ import React from "react";
 import { motion } from "framer-motion";
 import { Section } from "@/components/ui/Section";
 import { Button } from "@/components/ui/Button";
-
+import { useRouter } from "next/navigation";  
 export function TeamInvite() {
+  const router = useRouter();
   const teamMembers = [
     {
       name: "Jane Doe",
@@ -255,6 +256,7 @@ export function TeamInvite() {
               >
                 <Button
                   size="lg"
+                  onClick={() => router.push("/register")}
                   className="px-8 py-3 bg-orange-500 hover:bg-orange-600 text-white rounded-lg font-medium"
                 >
                   Kayıt Ol

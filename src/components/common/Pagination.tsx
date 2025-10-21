@@ -1,82 +1,90 @@
 "use client";
 
+import { Button } from "@/components/ui/Button";
+
 interface PaginationProps {
   currentPage: number;
   totalPages: number;
-  totalItems: number;
-  pageSize: number;
   onPageChange: (page: number) => void;
-  onPageSizeChange: (size: number) => void;
-  pageSizeOptions?: number[];
-  showPageSizeSelector?: boolean;
-  showItemCount?: boolean;
   className?: string;
 }
 
-export default function Pagination({
-  currentPage,
-  totalPages,
-  totalItems,
-  pageSize,
-  onPageChange,
-  onPageSizeChange,
-  pageSizeOptions = [10, 20, 50, 100],
-  showPageSizeSelector = true,
-  showItemCount = true,
-  className = "",
+export default function Pagination({ 
+  currentPage, 
+  totalPages, 
+  onPageChange, 
+  className = "" 
 }: PaginationProps) {
-  const hasNext = currentPage < totalPages;
-  const hasPrev = currentPage > 1;
+  if (totalPages <= 1) return null;
+
+  const getVisiblePages = () => {
+    const delta = 2;
+    const range = [];
+    const rangeWithDots = [];
+
+    for (let i = Math.max(2, currentPage - delta); i <= Math.min(totalPages - 1, currentPage + delta); i++) {
+      range.push(i);
+    }
+
+    if (currentPage - delta > 2) {
+      rangeWithDots.push(1, "...");
+    } else {
+      rangeWithDots.push(1);
+    }
+
+    rangeWithDots.push(...range);
+
+    if (currentPage + delta < totalPages - 1) {
+      rangeWithDots.push("...", totalPages);
+    } else {
+      rangeWithDots.push(totalPages);
+    }
+
+    return rangeWithDots;
+  };
+
+  const visiblePages = getVisiblePages();
 
   return (
-    <div className={`bg-white dark:bg-slate-800 rounded-xl border border-slate-200 dark:border-slate-700 p-3 shadow-sm ${className}`}>
-      <div className="flex flex-col sm:flex-row items-center justify-between gap-3">
-        {/* Page Size Selector */}
-        {showPageSizeSelector && (
-          <div className="flex items-center gap-2">
-            <span className="text-sm text-slate-600 dark:text-slate-400">Sayfa başına:</span>
-            <select
-              value={pageSize}
-              onChange={(e) => onPageSizeChange(Number(e.target.value))}
-              className="h-10 rounded-lg border border-slate-200 dark:border-slate-600 bg-white dark:bg-slate-700 text-slate-900 dark:text-white px-3 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-            >
-              {pageSizeOptions.map((size) => (
-                <option key={size} value={size}>
-                  {size}
-                </option>
-              ))}
-            </select>
-          </div>
-        )}
-
-        {/* Page Info */}
-        {showItemCount && (
-          <div className="flex items-center gap-2">
-            <span className="text-sm text-slate-600 dark:text-slate-400">
-              Sayfa {currentPage} / {totalPages} ({totalItems} öğe)
-            </span>
-          </div>
-        )}
-
-        {/* Navigation Buttons */}
-        <div className="flex items-center gap-1">
+    <div className={`flex items-center justify-center gap-2 ${className}`}>
+      <Button
+        variant="secondary"
+        size="sm"
+        onClick={() => onPageChange(currentPage - 1)}
+        disabled={currentPage === 1}
+        className="px-3 py-1.5 text-sm"
+      >
+        Önceki
+      </Button>
+      
+      <div className="flex items-center gap-1">
+        {visiblePages.map((page, index) => (
           <button
-            onClick={() => onPageChange(Math.max(1, currentPage - 1))}
-            disabled={!hasPrev}
-            className="h-10 px-3 text-sm border border-slate-300 dark:border-slate-600 rounded bg-white dark:bg-slate-700 text-slate-900 dark:text-white disabled:opacity-50 disabled:cursor-not-allowed hover:bg-slate-50 dark:hover:bg-slate-600 transition-colors"
+            key={index}
+            onClick={() => typeof page === "number" && onPageChange(page)}
+            disabled={page === "..."}
+            className={`px-3 py-1.5 text-sm rounded-lg transition-colors ${
+              page === currentPage
+                ? "bg-blue-600 text-white"
+                : page === "..."
+                ? "text-slate-400 cursor-default"
+                : "text-slate-600 hover:bg-slate-100 dark:text-slate-300 dark:hover:bg-slate-700"
+            }`}
           >
-            Önceki
+            {page}
           </button>
-
-          <button
-            onClick={() => onPageChange(currentPage + 1)}
-            disabled={!hasNext}
-            className="h-10 px-3 text-sm border border-slate-300 dark:border-slate-600 rounded bg-white dark:bg-slate-700 text-slate-900 dark:text-white disabled:opacity-50 disabled:cursor-not-allowed hover:bg-slate-50 dark:hover:bg-slate-600 transition-colors"
-          >
-            Sonraki
-          </button>
-        </div>
+        ))}
       </div>
+      
+      <Button
+        variant="secondary"
+        size="sm"
+        onClick={() => onPageChange(currentPage + 1)}
+        disabled={currentPage === totalPages}
+        className="px-3 py-1.5 text-sm"
+      >
+        Sonraki
+      </Button>
     </div>
   );
 }

@@ -32,29 +32,31 @@ export default function PanelContent({
   clickData, 
   countryData,
   days,
-  onDaysChange
+  onDaysChange,
 }: PanelContentProps) {
   return (
-    <div className="flex-1">
-      {activeTool === "overview" && (
-        <StatsOverview 
-          totalLinks={totalLinks}
-          totalClicks={totalClicks}
-          totalEarnings={totalEarnings}
-          clickData={clickData}
-          countryData={countryData}
-          days={days}
-          onDaysChange={onDaysChange}
-        />
-      )}
+    <div className="flex-1 w-full overflow-x-hidden">
+      <div className="w-full px-2 sm:px-4 lg:px-6">
+        {activeTool === "overview" && (
+          <StatsOverview 
+            totalLinks={totalLinks}
+            totalClicks={totalClicks}
+            totalEarnings={totalEarnings}
+            clickData={clickData}
+            countryData={countryData}
+            days={days}
+            onDaysChange={onDaysChange}
+          />
+        )}
 
-      {activeTool === "shorten" && (
-        <LinkManager />
-      )}
+        {activeTool === "shorten" && (
+          <LinkManager />
+        )}
 
-      {activeTool === "settings" && (
-        <Settings />
-      )}
+        {activeTool === "settings" && (
+          <Settings />
+        )}
+      </div>
     </div>
   );
 }

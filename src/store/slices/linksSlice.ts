@@ -17,7 +17,14 @@ type LinksState = {
   currentLink: Link | null;
   status: "idle" | "loading" | "succeeded" | "failed";
   error?: string;
-  linksPagination?: { page: number; limit: number; total: number; totalPages: number; hasNext: boolean; hasPrev: boolean };
+  userLinksPagination?: {
+    page: number;
+    limit: number;
+    total: number;
+    totalPages: number;
+    hasNext: boolean;
+    hasPrev: boolean;
+  };
   totalClicks?: number;
   totalEarnings?: number;
   earningPerClick?: number;
@@ -59,6 +66,8 @@ type LinksState = {
     };
   };
   trend?: Array<{ date: string; clicks: number }>;
+  trendRequestedDays?: number;
+  trendLoading?: boolean;
 };
 
 const initialState: LinksState = {
@@ -72,19 +81,16 @@ const API_URL = process.env.NEXT_PUBLIC_API_URL;
 // Fetch user's links
 export const fetchLinksThunk = createAsyncThunk(
   "links/fetchLinks",
-  async (payload: { token: string; page?: number; limit?: number } | string, { rejectWithValue, dispatch }) => {
+  async (token: string, { rejectWithValue, dispatch }) => {
     try {
-      const token = typeof payload === 'string' ? payload : payload.token;
-      const page = typeof payload === 'string' ? 1 : (payload.page ?? 1);
-      const limit = typeof payload === 'string' ? 10 : (payload.limit ?? 10);
-      let res = await fetch(`${API_URL}/api/links?page=${page}&limit=${limit}`, {
+      let res = await fetch(`${API_URL}/api/links`, {
         headers: { Authorization: `Bearer ${token}` },
       });
       if (res.status === 401) {
         try {
           await dispatch<any>(refreshAccessTokenThunk());
-          const newToken = (localStorage.getItem("token") as string) || token;
-          res = await fetch(`${API_URL}/api/links?page=${page}&limit=${limit}`, { headers: { Authorization: `Bearer ${newToken}` } });
+          const newToken = (typeof window !== 'undefined' ? localStorage.getItem("token") : null) || token;
+          res = await fetch(`${API_URL}/api/links`, { headers: { Authorization: `Bearer ${newToken}` } });
         } catch {}
         if (res.status === 401) {
           dispatch(handleUnauthorized());
@@ -93,7 +99,63 @@ export const fetchLinksThunk = createAsyncThunk(
       }
       if (!res.ok) throw new Error("Linkler alınamadı");
       const data = await res.json();
-      return data;
+      return data.links || [];
+    } catch (error: any) {
+      return rejectWithValue(error.message);
+    }
+  }
+);
+
+// Fetch all links (admin)
+export const fetchAllLinksThunk = createAsyncThunk(
+  "links/fetchAllLinks",
+  async (token: string, { rejectWithValue, dispatch }) => {
+    try {
+      let res = await fetch(`${API_URL}/api/links/admin/all`, {
+        headers: { Authorization: `Bearer ${token}` },
+      });
+      if (res.status === 401) {
+        try {
+          await dispatch<any>(refreshAccessTokenThunk());
+          const newToken = (typeof window !== 'undefined' ? localStorage.getItem("token") : null) || token;
+          res = await fetch(`${API_URL}/api/links/admin/all`, { headers: { Authorization: `Bearer ${newToken}` } });
+        } catch {}
+        if (res.status === 401) {
+          dispatch(handleUnauthorized());
+          return rejectWithValue("Unauthorized");
+        }
+      }
+      if (!res.ok) throw new Error("Tüm linkler alınamadı");
+      const data = await res.json();
+      return data.links || [];
+    } catch (error: any) {
+      return rejectWithValue(error.message);
+    }
+  }
+);
+
+// Fetch user's links by user ID (admin)
+export const fetchUserLinksThunk = createAsyncThunk(
+  "links/fetchUserLinks",
+  async ({ token, userId, page = 1, limit = 10 }: { token: string; userId: string; page?: number; limit?: number }, { rejectWithValue, dispatch }) => {
+    try {
+      let res = await fetch(`${API_URL}/api/links/admin/user/${userId}?page=${page}&limit=${limit}`, {
+        headers: { Authorization: `Bearer ${token}` },
+      });
+      if (res.status === 401) {
+        try {
+          await dispatch<any>(refreshAccessTokenThunk());
+          const newToken = (typeof window !== 'undefined' ? localStorage.getItem("token") : null) || token;
+          res = await fetch(`${API_URL}/api/links/admin/user/${userId}?page=${page}&limit=${limit}`, { headers: { Authorization: `Bearer ${newToken}` } });
+        } catch {}
+        if (res.status === 401) {
+          dispatch(handleUnauthorized());
+          return rejectWithValue("Unauthorized");
+        }
+      }
+      if (!res.ok) throw new Error("Kullanıcı linkleri alınamadı");
+      const data = await res.json();
+      return { links: data.links || [], pagination: data.pagination };
     } catch (error: any) {
       return rejectWithValue(error.message);
     }
@@ -113,7 +175,7 @@ export const createLinkThunk = createAsyncThunk(
       if (res.status === 401) {
         try {
           await dispatch<any>(refreshAccessTokenThunk());
-          const newToken = (localStorage.getItem("token") as string) || token;
+          const newToken = (typeof window !== 'undefined' ? localStorage.getItem("token") : null) || token;
           res = await fetch(`${API_URL}/api/links`, { method: "POST", headers: { "Content-Type": "application/json", Authorization: `Bearer ${newToken}` }, body: JSON.stringify({ targetUrl }) });
         } catch {}
         if (res.status === 401) {
@@ -140,6 +202,49 @@ export const createLinkThunk = createAsyncThunk(
   }
 );
 
+// Bulk create links
+export const bulkCreateLinksThunk = createAsyncThunk(
+  "links/bulkCreateLinks",
+  async ({ token, urls, text }: { token: string; urls?: string[]; text?: string }, { rejectWithValue, dispatch }) => {
+    try {
+      const body = urls && urls.length ? { urls } : { text };
+      let res = await fetch(`${API_URL}/api/links/bulk`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
+        body: JSON.stringify(body),
+      });
+      if (res.status === 401) {
+        try {
+          await dispatch<any>(refreshAccessTokenThunk());
+          const newToken = (typeof window !== 'undefined' ? localStorage.getItem("token") : null) || token;
+          res = await fetch(`${API_URL}/api/links/bulk`, { method: "POST", headers: { "Content-Type": "application/json", Authorization: `Bearer ${newToken}` }, body: JSON.stringify(body) });
+        } catch {}
+        if (res.status === 401) {
+          dispatch(handleUnauthorized());
+          return rejectWithValue("Unauthorized");
+        }
+      }
+      if (!res.ok) {
+        const data = await res.json().catch(() => ({}));
+        throw new Error(data.error ? JSON.stringify(data.error) : "Toplu oluşturma başarısız");
+      }
+      const data = await res.json();
+      const now = new Date().toISOString();
+      const normalized = (data.links || []).map((l: any) => ({
+        _id: l.id,
+        slug: l.slug,
+        targetUrl: l.targetUrl,
+        clicks: 0,
+        disabled: false,
+        createdAt: now,
+      }));
+      return normalized as Link[];
+    } catch (error: any) {
+      return rejectWithValue(error.message);
+    }
+  }
+);
+
 // Update link
 export const updateLinkThunk = createAsyncThunk(
   "links/updateLink",
@@ -153,7 +258,7 @@ export const updateLinkThunk = createAsyncThunk(
       if (res.status === 401) {
         try {
           await dispatch<any>(refreshAccessTokenThunk());
-          const newToken = (localStorage.getItem("token") as string) || token;
+          const newToken = (typeof window !== 'undefined' ? localStorage.getItem("token") : null) || token;
           res = await fetch(`${API_URL}/api/links/${id}`, { method: "PATCH", headers: { "Content-Type": "application/json", Authorization: `Bearer ${newToken}` }, body: JSON.stringify(updates) });
         } catch {}
         if (res.status === 401) {
@@ -182,7 +287,7 @@ export const deleteLinkThunk = createAsyncThunk(
       if (res.status === 401) {
         try {
           await dispatch<any>(refreshAccessTokenThunk());
-          const newToken = (localStorage.getItem("token") as string) || token;
+          const newToken = (typeof window !== 'undefined' ? localStorage.getItem("token") : null) || token;
           res = await fetch(`${API_URL}/api/links/${id}`, { method: "DELETE", headers: { Authorization: `Bearer ${newToken}` } });
         } catch {}
         if (res.status === 401) {
@@ -233,7 +338,7 @@ export const fetchStatsThunk = createAsyncThunk(
       if (res.status === 401) {
         try {
           await dispatch<any>(refreshAccessTokenThunk());
-          const newToken = (localStorage.getItem("token") as string) || token;
+          const newToken = (typeof window !== 'undefined' ? localStorage.getItem("token") : null) || token;
           res = await fetch(`${API_URL}/api/links/stats`, { headers: { Authorization: `Bearer ${newToken}` } });
         } catch {}
         if (res.status === 401) {
@@ -253,16 +358,15 @@ export const fetchStatsThunk = createAsyncThunk(
 // Fetch geo breakdown for overview
 export const fetchGeoThunk = createAsyncThunk(
   "links/fetchGeo",
-  async (payload: string | { token: string; days?: number }, { rejectWithValue, dispatch }) => {
+  async (payload: { token: string; days?: number }, { rejectWithValue, dispatch }) => {
     try {
-      const token = typeof payload === 'string' ? payload : payload.token;
-      const days = typeof payload === 'string' ? undefined : payload.days;
-      const qs = days ? `?days=${days}` : '';
+      const { token, days } = payload;
+      const qs = days ? `?days=${days}` : "";
       let res = await fetch(`${API_URL}/api/links/geo${qs}`, { headers: { Authorization: `Bearer ${token}` } });
       if (res.status === 401) {
         try {
           await dispatch<any>(refreshAccessTokenThunk());
-          const newToken = (localStorage.getItem("token") as string) || token;
+          const newToken = (typeof window !== 'undefined' ? localStorage.getItem("token") : null) || token;
           res = await fetch(`${API_URL}/api/links/geo${qs}`, { headers: { Authorization: `Bearer ${newToken}` } });
         } catch {}
         if (res.status === 401) {
@@ -290,7 +394,7 @@ export const fetchTrendThunk = createAsyncThunk(
       if (res.status === 401) {
         try {
           await dispatch<any>(refreshAccessTokenThunk());
-          const newToken = (localStorage.getItem("token") as string) || token;
+          const newToken = (typeof window !== 'undefined' ? localStorage.getItem("token") : null) || token;
           res = await fetch(`${API_URL}/api/links/trend?days=${days}`, { headers: { Authorization: `Bearer ${newToken}` } });
         } catch {}
         if (res.status === 401) {
@@ -310,17 +414,16 @@ export const fetchTrendThunk = createAsyncThunk(
 // Fetch link analytics
 export const fetchLinkAnalyticsThunk = createAsyncThunk(
   "links/fetchLinkAnalytics",
-  async ({ token, linkId, page = 1, limit = 10, days }: { token: string; linkId: string; page?: number; limit?: number; days?: number }, { rejectWithValue, dispatch }) => {
+  async ({ token, linkId, page = 1, limit = 10, days = 365 }: { token: string; linkId: string; page?: number; limit?: number; days?: number }, { rejectWithValue, dispatch }) => {
     try {
-      const qs = `${`page=${page}&limit=${limit}`}${days ? `&days=${days}` : ''}`;
-      let res = await fetch(`${API_URL}/api/links/${linkId}/analytics?${qs}`, {
+      let res = await fetch(`${API_URL}/api/links/${linkId}/analytics?page=${page}&limit=${limit}&days=${days}`, {
         headers: { Authorization: `Bearer ${token}` },
       });
       if (res.status === 401) {
         try {
           await dispatch<any>(refreshAccessTokenThunk());
-          const newToken = (localStorage.getItem("token") as string) || token;
-          res = await fetch(`${API_URL}/api/links/${linkId}/analytics?${qs}`, { headers: { Authorization: `Bearer ${newToken}` } });
+          const newToken = (typeof window !== 'undefined' ? localStorage.getItem("token") : null) || token;
+          res = await fetch(`${API_URL}/api/links/${linkId}/analytics?page=${page}&limit=${limit}&days=${days}`, { headers: { Authorization: `Bearer ${newToken}` } });
         } catch {}
         if (res.status === 401) {
           dispatch(handleUnauthorized());
@@ -401,12 +504,16 @@ const linksSlice = createSlice({
       })
       .addCase(fetchLinksThunk.fulfilled, (state, action) => {
         state.status = "succeeded";
-        if (Array.isArray(action.payload)) {
-          state.links = action.payload as any;
-        } else {
-          state.links = (action.payload.links || []) as any;
-          state.linksPagination = action.payload.pagination;
-        }
+        state.links = action.payload;
+      })
+      .addCase(fetchAllLinksThunk.fulfilled, (state, action) => {
+        state.status = "succeeded";
+        state.links = action.payload;
+      })
+      .addCase(fetchUserLinksThunk.fulfilled, (state, action) => {
+        state.status = "succeeded";
+        state.links = action.payload.links;
+        state.userLinksPagination = action.payload.pagination;
       })
       .addCase(fetchLinksThunk.rejected, (state, action) => {
         state.status = "failed";
@@ -423,6 +530,20 @@ const linksSlice = createSlice({
         state.links.unshift(action.payload);
       })
       .addCase(createLinkThunk.rejected, (state, action) => {
+        state.status = "failed";
+        state.error = action.error.message;
+      })
+
+      // Bulk create links
+      .addCase(bulkCreateLinksThunk.pending, (state) => {
+        state.status = "loading";
+        state.error = undefined;
+      })
+      .addCase(bulkCreateLinksThunk.fulfilled, (state, action) => {
+        state.status = "succeeded";
+        state.links = [...action.payload, ...state.links];
+      })
+      .addCase(bulkCreateLinksThunk.rejected, (state, action) => {
         state.status = "failed";
         state.error = action.error.message;
       })
@@ -505,8 +626,20 @@ const linksSlice = createSlice({
         state.status = "failed";
         state.error = action.error.message;
       })
+      .addCase(fetchTrendThunk.pending, (state, action) => {
+        state.trendLoading = true;
+        state.trendRequestedDays = action.meta.arg?.days ?? 30;
+      })
       .addCase(fetchTrendThunk.fulfilled, (state, action) => {
-        state.trend = action.payload;
+        // Only apply if this response matches the latest requested range
+        const responseDays = action.meta.arg?.days ?? 30;
+        if (state.trendRequestedDays === undefined || state.trendRequestedDays === responseDays) {
+          state.trend = action.payload;
+        }
+        state.trendLoading = false;
+      })
+      .addCase(fetchTrendThunk.rejected, (state) => {
+        state.trendLoading = false;
       })
       
       // Fetch link analytics

@@ -24,7 +24,7 @@ export default function RedirectEntry() {
       const target: string = r.payload.targetUrl;
       const token: string = r.payload.token;
       if (!target || !token) throw new Error('missing-redirect');
-      window.location.replace(`${target}${target.includes('?') ? '&' : '?'}t=${encodeURIComponent(token)}`);
+      if (typeof window !== 'undefined') window.location.replace(`${target}${target.includes('?') ? '&' : '?'}t=${encodeURIComponent(token)}`);
     } catch (e) {
       setError('Yönlendirme başarısız.');
       setTimeout(()=>router.replace('/'), 1500);

@@ -18,7 +18,7 @@ type CampaignsState = {
   items: Campaign[];
   status: "idle" | "loading" | "succeeded" | "failed";
   error?: string;
-  pricing?: Array<{ audience: "user"|"advertiser"; country: string; unit: string; rates: Record<string, number> }>;
+  pricing?: Array<{ audience: "user"|"advertiser"; country: string; unit: string; rates: { website_traffic: number } }>;
   myPayments?: Array<{ _id: string; amount: number; currency: string; method: string; status: string; createdAt: string; description?: string }>;
   adminUserSummary?: any;
 };
@@ -102,7 +102,31 @@ export const fetchPricingThunk = createAsyncThunk(
       const API_URL = process.env.NEXT_PUBLIC_API_URL;
       const res = await fetch(`${API_URL}/api/pricing`);
       if (!res.ok) throw new Error("Fiyatlar yüklenemedi");
-      return (await res.json()).entries as Array<{ audience: "user"|"advertiser"; country: string; unit: string; rates: Record<string, number> }>;
+      return (await res.json()).entries as Array<{ audience: "user"|"advertiser"; country: string; unit: string; rates: { website_traffic: number } }>;
+    } catch (e: any) {
+      return rejectWithValue(e.message);
+    }
+  }
+);
+
+// Admin: add single pricing entry
+export const addPricingThunk = createAsyncThunk(
+  "campaigns/addPricing",
+  async (payload: { audience: "user"|"advertiser"; country: string; unit?: string; rates: { website_traffic: number } }, { dispatch, getState, rejectWithValue }) => {
+    try {
+      const token = (getState() as any).auth.token;
+      const res = await callApi(
+        `${API_URL}/api/pricing`,
+        {
+          method: "POST",
+          headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
+          body: JSON.stringify(payload),
+        },
+        dispatch,
+        getState
+      );
+      const data = await res.json();
+      return data.entries as any[];
     } catch (e: any) {
       return rejectWithValue(e.message);
     }
@@ -112,7 +136,7 @@ export const fetchPricingThunk = createAsyncThunk(
 // Admin: upsert pricing table
 export const upsertPricingThunk = createAsyncThunk(
   "campaigns/upsertPricing",
-  async (payload: { entries: Array<{ audience: "user"|"advertiser"; country: string; unit?: string; rates: Record<string, number> }> }, { dispatch, getState, rejectWithValue }) => {
+  async (payload: { entries: Array<{ audience: "user"|"advertiser"; country: string; unit?: string; rates: { website_traffic: number } }> }, { dispatch, getState, rejectWithValue }) => {
     try {
       const token = (getState() as any).auth.token;
       const res = await callApi(
@@ -121,6 +145,57 @@ export const upsertPricingThunk = createAsyncThunk(
           method: "PUT",
           headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
           body: JSON.stringify(payload),
+        },
+        dispatch,
+        getState
+      );
+      const data = await res.json();
+      return data.entries as any[];
+    } catch (e: any) {
+      return rejectWithValue(e.message);
+    }
+  }
+);
+
+// Delete pricing entry (admin)
+export const deletePricingThunk = createAsyncThunk(
+  "campaigns/deletePricing",
+  async (payload: { audience: "user"|"advertiser"; country: string }, { dispatch, getState, rejectWithValue }) => {
+    try {
+      const token = (getState() as any).auth.token;
+      const res = await callApi(
+        `${API_URL}/api/pricing/${payload.audience}/${payload.country}`,
+        {
+          method: "DELETE",
+          headers: { Authorization: `Bearer ${token}` },
+        },
+        dispatch,
+        getState
+      );
+      const data = await res.json();
+      return data.entries as any[];
+    } catch (e: any) {
+      return rejectWithValue(e.message);
+    }
+  }
+);
+
+// Update pricing entry (admin)
+export const updatePricingThunk = createAsyncThunk(
+  "campaigns/updatePricing",
+  async (payload: { 
+    audience: "user"|"advertiser"; 
+    country: string; 
+    data: { audience: "user"|"advertiser"; country: string; unit?: string; rates: { website_traffic: number } }
+  }, { dispatch, getState, rejectWithValue }) => {
+    try {
+      const token = (getState() as any).auth.token;
+      const res = await callApi(
+        `${API_URL}/api/pricing/${payload.audience}/${payload.country}`,
+        {
+          method: "PATCH",
+          headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
+          body: JSON.stringify(payload.data),
         },
         dispatch,
         getState
@@ -210,7 +285,10 @@ const campaignsSlice = createSlice({
     });
 
     b.addCase(fetchPricingThunk.fulfilled, (s, a) => { s.pricing = a.payload as any; });
+    b.addCase(addPricingThunk.fulfilled, (s, a) => { s.pricing = a.payload as any; });
     b.addCase(upsertPricingThunk.fulfilled, (s, a) => { s.pricing = a.payload as any; });
+    b.addCase(deletePricingThunk.fulfilled, (s, a) => { s.pricing = a.payload as any; });
+    b.addCase(updatePricingThunk.fulfilled, (s, a) => { s.pricing = a.payload as any; });
     b.addCase(fetchMyPaymentsThunk.fulfilled, (s, a) => { s.myPayments = a.payload as any; });
     b.addCase(fetchAdminUserCampaignSummaryThunk.fulfilled, (s, a) => {
       s.adminUserSummary = (a.payload as any).data;

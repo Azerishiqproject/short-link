@@ -4,7 +4,6 @@ import { useState, useEffect } from "react";
 import { useAppDispatch, useAppSelector } from "@/store";
 import { Button } from "@/components/ui/Button";
 import { Card } from "@/components/ui/Card";
-import Pagination from "../common/Pagination";
 import { 
   fetchUserWithdrawalsThunk, 
   updatePaymentStatusThunk, 
@@ -18,6 +17,7 @@ interface WithdrawalRequest {
   createdAt: string;
   iban?: string;
   fullName?: string;
+  withdrawalType?: "earned" | "referral";
   adminNotes?: string;
   ownerId?: {
     _id: string;
@@ -30,31 +30,14 @@ interface WithdrawalRequest {
 
 export default function WithdrawalManager() {
   const dispatch = useAppDispatch();
-  const { userWithdrawals, status, withdrawalsPagination } = useAppSelector((s) => s.payments);
+  const { userWithdrawals, status } = useAppSelector((s) => s.payments);
   const [selectedWithdrawal, setSelectedWithdrawal] = useState<WithdrawalRequest | null>(null);
   const [adminNotes, setAdminNotes] = useState("");
   const [activeTab, setActiveTab] = useState<"pending" | "approved" | "rejected">("pending");
-  const [currentPage, setCurrentPage] = useState(1);
-  const [pageSize, setPageSize] = useState(10);
 
-  // Fetch data when page, pageSize, or activeTab changes
   useEffect(() => {
-    dispatch(fetchUserWithdrawalsThunk({ page: currentPage, limit: pageSize, status: activeTab }));
-  }, [currentPage, pageSize, activeTab, dispatch]);
-
-  const handlePageChange = (newPage: number) => {
-    setCurrentPage(newPage);
-  };
-
-  const handlePageSizeChange = (newSize: number) => {
-    setPageSize(newSize);
-    setCurrentPage(1);
-  };
-
-  const handleTabChange = (newTab: "pending" | "approved" | "rejected") => {
-    setActiveTab(newTab);
-    setCurrentPage(1); // Reset pagination when tab changes
-  };
+    dispatch(fetchUserWithdrawalsThunk());
+  }, [dispatch]);
 
   const updateWithdrawalStatus = async (id: string, status: string) => {
     try {
@@ -74,9 +57,9 @@ export default function WithdrawalManager() {
     }
   };
 
-  // Use backend filtered data - no client-side filtering needed
-  const currentWithdrawals = userWithdrawals;
-  const pagination = withdrawalsPagination;
+  const pendingWithdrawals = userWithdrawals.filter(w => w.status === "pending");
+  const approvedWithdrawals = userWithdrawals.filter(w => w.status === "approved");
+  const rejectedWithdrawals = userWithdrawals.filter(w => w.status === "rejected");
 
   const getStatusColor = (status: string) => {
     switch (status) {
@@ -93,7 +76,7 @@ export default function WithdrawalManager() {
         <h2 className="text-lg font-semibold text-slate-900 dark:text-white">Çekim Yönetimi</h2>
         <Button 
           variant="secondary" 
-          onClick={() => dispatch(fetchUserWithdrawalsThunk({ page: currentPage, limit: pageSize, status: activeTab }))}
+          onClick={() => dispatch(fetchUserWithdrawalsThunk())}
         >
           Yenile
         </Button>
@@ -107,14 +90,14 @@ export default function WithdrawalManager() {
               ? "ring-2 ring-yellow-500 dark:ring-yellow-400 bg-yellow-50 dark:bg-yellow-900/10" 
               : "hover:bg-slate-50 dark:hover:bg-slate-800"
           }`}
-          onClick={() => handleTabChange("pending")}
+          onClick={() => setActiveTab("pending")}
         >
           <div className="text-xs text-slate-600 dark:text-slate-400">Bekleyen Çekimler</div>
           <div className="text-xl font-bold text-yellow-600 dark:text-yellow-400">
-            {activeTab === "pending" ? (pagination?.total || 0) : 0}
+            {pendingWithdrawals.length}
           </div>
           <div className="text-xs text-slate-500">
-            ₺{activeTab === "pending" ? currentWithdrawals.reduce((sum, w) => sum + w.amount, 0).toLocaleString() : 0}
+            ₺{pendingWithdrawals.reduce((sum, w) => sum + w.amount, 0).toLocaleString()}
           </div>
         </Card>
         
@@ -124,14 +107,14 @@ export default function WithdrawalManager() {
               ? "ring-2 ring-green-500 dark:ring-green-400 bg-green-50 dark:bg-green-900/10" 
               : "hover:bg-slate-50 dark:hover:bg-slate-800"
           }`}
-          onClick={() => handleTabChange("approved")}
+          onClick={() => setActiveTab("approved")}
         >
           <div className="text-xs text-slate-600 dark:text-slate-400">Onaylanan Çekimler</div>
           <div className="text-xl font-bold text-green-600 dark:text-green-400">
-            {activeTab === "approved" ? (pagination?.total || 0) : 0}
+            {approvedWithdrawals.length}
           </div>
           <div className="text-xs text-slate-500">
-            ₺{activeTab === "approved" ? currentWithdrawals.reduce((sum, w) => sum + w.amount, 0).toLocaleString() : 0}
+            ₺{approvedWithdrawals.reduce((sum, w) => sum + w.amount, 0).toLocaleString()}
           </div>
         </Card>
         
@@ -141,33 +124,36 @@ export default function WithdrawalManager() {
               ? "ring-2 ring-red-500 dark:ring-red-400 bg-red-50 dark:bg-red-900/10" 
               : "hover:bg-slate-50 dark:hover:bg-slate-800"
           }`}
-          onClick={() => handleTabChange("rejected")}
+          onClick={() => setActiveTab("rejected")}
         >
           <div className="text-xs text-slate-600 dark:text-slate-400">Reddedilen Çekimler</div>
           <div className="text-xl font-bold text-red-600 dark:text-red-400">
-            {activeTab === "rejected" ? (pagination?.total || 0) : 0}
+            {rejectedWithdrawals.length}
           </div>
           <div className="text-xs text-slate-500">
-            ₺{activeTab === "rejected" ? currentWithdrawals.reduce((sum, w) => sum + w.amount, 0).toLocaleString() : 0}
+            ₺{rejectedWithdrawals.reduce((sum, w) => sum + w.amount, 0).toLocaleString()}
           </div>
         </Card>
       </div>
 
       {/* Çekim Listesi - Dinamik Tab */}
-      <div className="flex flex-col h-full">
+      <div>
         <h3 className="text-base font-medium text-slate-900 dark:text-white mb-3">
-          {activeTab === "pending" && `Bekleyen Çekimler (${pagination?.total || 0})`}
-          {activeTab === "approved" && `Onaylanan Çekimler (${pagination?.total || 0})`}
-          {activeTab === "rejected" && `Reddedilen Çekimler (${pagination?.total || 0})`}
+          {activeTab === "pending" && `Bekleyen Çekimler (${pendingWithdrawals.length})`}
+          {activeTab === "approved" && `Onaylanan Çekimler (${approvedWithdrawals.length})`}
+          {activeTab === "rejected" && `Reddedilen Çekimler (${rejectedWithdrawals.length})`}
         </h3>
         
         {status === "loading" ? (
           <div className="text-slate-600 dark:text-slate-400">Yükleniyor...</div>
         ) : (
-          <div className="flex-1 flex flex-col">
-            <div className="flex-1">
-              <div className="space-y-3">
-                {currentWithdrawals.map((withdrawal) => (
+          <div className="space-y-3">
+            {(() => {
+              const currentWithdrawals = activeTab === "pending" ? pendingWithdrawals : 
+                                       activeTab === "approved" ? approvedWithdrawals : 
+                                       rejectedWithdrawals;
+              
+              return currentWithdrawals.map((withdrawal) => (
                 <Card key={withdrawal._id} className="p-4">
                   <div className="flex items-center justify-between">
                     <div className="flex-1">
@@ -178,6 +164,15 @@ export default function WithdrawalManager() {
                         <span className={`px-2 py-1 rounded-full text-xs font-medium ${getStatusColor(withdrawal.status)}`}>
                           {withdrawal.status}
                         </span>
+                        {withdrawal.withdrawalType && (
+                          <span className={`px-2 py-1 rounded-full text-xs font-medium ${
+                            withdrawal.withdrawalType === "referral" 
+                              ? "bg-green-100 text-green-800 dark:bg-green-900/20 dark:text-green-400"
+                              : "bg-blue-100 text-blue-800 dark:bg-blue-900/20 dark:text-blue-400"
+                          }`}>
+                            {withdrawal.withdrawalType === "referral" ? "Referans Parası" : "Normal Kazanç"}
+                          </span>
+                        )}
                       </div>
                       
                       <div className="text-sm text-slate-600 dark:text-slate-400 space-y-1">
@@ -222,33 +217,29 @@ export default function WithdrawalManager() {
                     </div>
                   </div>
                 </Card>
-                ))}
-                
-                {currentWithdrawals.length === 0 && (
-                  <div className="text-center py-8 text-slate-500 dark:text-slate-400">
-                    {activeTab === "pending" && "Bekleyen çekim isteği bulunmuyor"}
-                    {activeTab === "approved" && "Onaylanan çekim bulunmuyor"}
-                    {activeTab === "rejected" && "Reddedilen çekim bulunmuyor"}
-                  </div>
-                )}
-              </div>
-            </div>
+              ));
+            })()}
             
-            {pagination && pagination.totalPages > 1 && (
-              <div className="mt-4">
-                <Pagination
-                  currentPage={pagination.page}
-                  totalPages={pagination.totalPages}
-                  totalItems={pagination.total}
-                  pageSize={pagination.limit}
-                  onPageChange={handlePageChange}
-                  onPageSizeChange={handlePageSizeChange}
-                  pageSizeOptions={[5, 10, 20, 50]}
-                  showPageSizeSelector={true}
-                  showItemCount={true}
-                />
-              </div>
-            )}
+            {(() => {
+              const currentWithdrawals = activeTab === "pending" ? pendingWithdrawals : 
+                                       activeTab === "approved" ? approvedWithdrawals : 
+                                       rejectedWithdrawals;
+              
+              if (currentWithdrawals.length === 0) {
+                const emptyMessages = {
+                  pending: "Bekleyen çekim isteği bulunmuyor",
+                  approved: "Onaylanan çekim bulunmuyor",
+                  rejected: "Reddedilen çekim bulunmuyor"
+                };
+                
+                return (
+                  <div className="text-center py-8 text-slate-500 dark:text-slate-400">
+                    {emptyMessages[activeTab]}
+                  </div>
+                );
+              }
+              return null;
+            })()}
           </div>
         )}
       </div>
@@ -270,6 +261,20 @@ export default function WithdrawalManager() {
                 <label className="text-sm text-slate-600 dark:text-slate-400">Miktar</label>
                 <div className="font-medium">₺{selectedWithdrawal.amount.toLocaleString()}</div>
               </div>
+              {selectedWithdrawal.withdrawalType && (
+                <div>
+                  <label className="text-sm text-slate-600 dark:text-slate-400">Çekim Türü</label>
+                  <div className="font-medium">
+                    <span className={`px-2 py-1 rounded-full text-xs font-medium ${
+                      selectedWithdrawal.withdrawalType === "referral" 
+                        ? "bg-green-100 text-green-800 dark:bg-green-900/20 dark:text-green-400"
+                        : "bg-blue-100 text-blue-800 dark:bg-blue-900/20 dark:text-blue-400"
+                    }`}>
+                      {selectedWithdrawal.withdrawalType === "referral" ? "Referans Parası" : "Normal Kazanç"}
+                    </span>
+                  </div>
+                </div>
+              )}
               <div>
                 <label className="text-sm text-slate-600 dark:text-slate-400">IBAN</label>
                 <div className="font-medium">{selectedWithdrawal.iban || selectedWithdrawal.ownerId?.iban || "Belirtilmemiş"}</div>
