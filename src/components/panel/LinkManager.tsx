@@ -303,7 +303,7 @@ export default function LinkManager() {
             <p className="text-sm sm:text-base text-slate-600 dark:text-slate-400">Farklı bir arama terimi deneyin</p>
           </div>
         ) : (
-          <div className="space-y-2 sm:space-y-3">
+          <div className="space-y-2 sm:space-y-3 max-h-[600px] overflow-y-auto pr-2 scrollbar-thin">
             {filteredLinks.map((link) => (
               <div key={link._id} className="bg-white dark:bg-slate-800 rounded-xl border border-slate-200 dark:border-slate-700 p-3 sm:p-4 lg:p-5 hover:shadow-md transition-all duration-200">
                 <div className="flex flex-col lg:flex-row lg:items-start justify-between gap-3 lg:gap-4">
