@@ -1,5 +1,6 @@
 import { createAsyncThunk, createSlice, PayloadAction } from "@reduxjs/toolkit";
 import { getOrCreateDeviceId } from "@/lib/utils";
+import { refreshAccessTokenThunk, handleUnauthorized } from "./authSlice";
 
 export type AppUser = { id?: string; _id?: string; email: string; name?: string; role: string; createdAt?: string; balance?: number };
 
@@ -20,16 +21,50 @@ type UsersState = {
 
 const API_URL = process.env.API_URL;
 
+const callApi = async (
+  url: string,
+  options: RequestInit,
+  dispatch: any,
+  getState: any,
+  retry = 0
+) => {
+  let res = await fetch(url, options);
+  if (res.status === 401 && retry < 1) {
+    const r = await dispatch(refreshAccessTokenThunk());
+    if (r.meta.requestStatus === "fulfilled") {
+      const newToken = r.payload.token;
+      const newOptions = {
+        ...options,
+        headers: { ...(options.headers || {}), Authorization: `Bearer ${newToken}` },
+      };
+      return callApi(url, newOptions, dispatch, getState, retry + 1);
+    } else {
+      dispatch(handleUnauthorized());
+      throw new Error("Unauthorized");
+    }
+  }
+  if (!res.ok) {
+    const data = await res.json().catch(() => ({}));
+    throw new Error(data.error || "API error");
+  }
+  return res;
+};
+
 export const fetchAllUsersThunk = createAsyncThunk<{ users: AppUser[]; pagination?: any }, { token: string; page?: number; limit?: number; search?: string; role?: string }>(
   "users/fetchAll",
-  async ({ token, page = 1, limit = 20, search = "", role = "all" }) => {
+  async ({ token, page = 1, limit = 20, search = "", role = "all" }, { dispatch, getState }) => {
     const searchParam = search ? `&search=${encodeURIComponent(search)}` : "";
     const roleParam = role && role !== "all" ? `&role=${encodeURIComponent(role)}` : "";
     const deviceId = getOrCreateDeviceId();
     const headers: any = { Authorization: `Bearer ${token}` };
     if (deviceId) headers["x-device-id"] = deviceId;
-    const res = await fetch(`${API_URL}/api/auth/admin/users?page=${page}&limit=${limit}${searchParam}${roleParam}`, { headers });
-    if (!res.ok) throw new Error((await res.text()) || "Kullanıcılar alınamadı");
+    
+    const res = await callApi(
+      `${API_URL}/api/auth/admin/users?page=${page}&limit=${limit}${searchParam}${roleParam}`,
+      { headers },
+      dispatch,
+      getState
+    );
     const data = await res.json();
     return { users: (data.users || []) as AppUser[], pagination: data.pagination };
   }
@@ -37,7 +72,7 @@ export const fetchAllUsersThunk = createAsyncThunk<{ users: AppUser[]; paginatio
 
 export const updateUserThunk = createAsyncThunk<AppUser, { userId: string; data: any }>(
   "users/update",
-  async ({ userId, data }) => {
+  async ({ userId, data }, { dispatch, getState }) => {
     const token = typeof window !== 'undefined' ? localStorage.getItem('token') : null;
     const deviceId = getOrCreateDeviceId();
     const headers: any = {
@@ -45,12 +80,17 @@ export const updateUserThunk = createAsyncThunk<AppUser, { userId: string; data:
       Authorization: `Bearer ${token}`
     };
     if (deviceId) headers["x-device-id"] = deviceId;
-    const res = await fetch(`${API_URL}/api/auth/admin/users/${userId}`, {
-      method: 'PATCH',
-      headers,
-      body: JSON.stringify(data)
-    });
-    if (!res.ok) throw new Error((await res.text()) || "Kullanıcı güncellenemedi");
+    
+    const res = await callApi(
+      `${API_URL}/api/auth/admin/users/${userId}`,
+      {
+        method: 'PATCH',
+        headers,
+        body: JSON.stringify(data)
+      },
+      dispatch,
+      getState
+    );
     const responseData = await res.json();
     return responseData.user as AppUser;
   }
@@ -58,60 +98,109 @@ export const updateUserThunk = createAsyncThunk<AppUser, { userId: string; data:
 
 export const createIpBanThunk = createAsyncThunk<any, { token: string; ip: string; reason?: string; expiresAt?: string }>(
   "users/createIpBan",
-  async ({ token, ip, reason, expiresAt }) => {
+  async ({ token, ip, reason, expiresAt }, { dispatch, getState }) => {
     const deviceId = getOrCreateDeviceId();
     const headers: any = { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` };
     if (deviceId) headers['x-device-id'] = deviceId;
-    const res = await fetch(`${API_URL}/api/admin/bans`, {
-      method: 'POST',
-      headers,
-      body: JSON.stringify({ ip, reason, expiresAt })
-    });
-    if (!res.ok) throw new Error((await res.text()) || 'Ban oluşturulamadı');
+    
+    const res = await callApi(
+      `${API_URL}/api/admin/bans`,
+      {
+        method: 'POST',
+        headers,
+        body: JSON.stringify({ ip, reason, expiresAt })
+      },
+      dispatch,
+      getState
+    );
     return await res.json();
   }
 );
 
 export const createDeviceBanThunk = createAsyncThunk<any, { token: string; deviceId: string; reason?: string; expiresAt?: string }>(
   "users/createDeviceBan",
-  async ({ token, deviceId: targetDeviceId, reason, expiresAt }) => {
+  async ({ token, deviceId: targetDeviceId, reason, expiresAt }, { dispatch, getState }) => {
     const deviceId = getOrCreateDeviceId();
     const headers: any = { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` };
     if (deviceId) headers['x-device-id'] = deviceId;
-    const res = await fetch(`${API_URL}/api/admin/bans`, {
-      method: 'POST',
-      headers,
-      body: JSON.stringify({ deviceId: targetDeviceId, reason, expiresAt })
-    });
-    if (!res.ok) throw new Error((await res.text()) || 'Ban oluşturulamadı');
+    
+    const res = await callApi(
+      `${API_URL}/api/admin/bans`,
+      {
+        method: 'POST',
+        headers,
+        body: JSON.stringify({ deviceId: targetDeviceId, reason, expiresAt })
+      },
+      dispatch,
+      getState
+    );
     return await res.json();
   }
 );
 
 export const createEmailBanThunk = createAsyncThunk<any, { token: string; email: string; reason?: string; expiresAt?: string }>(
   "users/createEmailBan",
-  async ({ token, email, reason, expiresAt }) => {
+  async ({ token, email, reason, expiresAt }, { dispatch, getState }) => {
     const deviceId = getOrCreateDeviceId();
     const headers: any = { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` };
     if (deviceId) headers['x-device-id'] = deviceId;
-    const res = await fetch(`${API_URL}/api/admin/bans`, {
-      method: 'POST',
-      headers,
-      body: JSON.stringify({ email, reason, expiresAt })
-    });
-    if (!res.ok) throw new Error((await res.text()) || 'Ban oluşturulamadı');
+    
+    const res = await callApi(
+      `${API_URL}/api/admin/bans`,
+      {
+        method: 'POST',
+        headers,
+        body: JSON.stringify({ email, reason, expiresAt })
+      },
+      dispatch,
+      getState
+    );
+    return await res.json();
+  }
+);
+
+export const createComprehensiveBanThunk = createAsyncThunk<any, { 
+  token: string; 
+  email: string; 
+  ips?: string[]; 
+  deviceIds?: string[]; 
+  reason?: string; 
+  expiresAt?: string;
+  userId?: string;
+}>(
+  "users/createComprehensiveBan",
+  async ({ token, email, ips, deviceIds, reason, expiresAt, userId }, { dispatch, getState }) => {
+    const deviceId = getOrCreateDeviceId();
+    const headers: any = { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` };
+    if (deviceId) headers['x-device-id'] = deviceId;
+    
+    const res = await callApi(
+      `${API_URL}/api/admin/bans/comprehensive`,
+      {
+        method: 'POST',
+        headers,
+        body: JSON.stringify({ email, ips, deviceIds, reason, expiresAt, userId })
+      },
+      dispatch,
+      getState
+    );
     return await res.json();
   }
 );
 
 export const fetchBansThunk = createAsyncThunk<any, { token: string; page?: number; limit?: number }>(
   "users/fetchBans",
-  async ({ token, page = 1, limit = 20 }) => {
+  async ({ token, page = 1, limit = 20 }, { dispatch, getState }) => {
     const deviceId = getOrCreateDeviceId();
     const headers: any = { Authorization: `Bearer ${token}` };
     if (deviceId) headers['x-device-id'] = deviceId;
-    const res = await fetch(`${API_URL}/api/admin/bans?page=${page}&limit=${limit}`, { headers });
-    if (!res.ok) throw new Error((await res.text()) || 'Ban listesi alınamadı');
+    
+    const res = await callApi(
+      `${API_URL}/api/admin/bans?page=${page}&limit=${limit}`,
+      { headers },
+      dispatch,
+      getState
+    );
     return await res.json();
   }
 );

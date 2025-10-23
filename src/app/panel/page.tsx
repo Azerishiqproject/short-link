@@ -43,6 +43,16 @@ export default function PanelPage() {
   const initialLoadedRef = useRef<boolean>(false);
   const lastTrendDaysRef = useRef<number | null>(null);
 
+  // Tab değişikliklerinde URL'yi güncelle
+  const handleTabChange = (tab: ToolKey) => {
+    setActiveTool(tab);
+    if (typeof window !== 'undefined') {
+      const url = new URL(window.location.href);
+      url.searchParams.set('tab', tab);
+      window.history.pushState({}, '', url.toString());
+    }
+  };
+
   // Dev-only: log outgoing fetch requests count for visibility
   useEffect(() => {
     if (typeof window === 'undefined') return;
@@ -154,8 +164,8 @@ export default function PanelPage() {
                 { key: "budget", label: "Bütçe", icon: <FiDollarSign className='w-4 h-4' /> },
               ] as { key: ToolKey; label: string; icon: React.ReactElement }[])}
               activeKey={activeTool}
-              onSelect={(k)=>setActiveTool(k as ToolKey)}
-              onSettings={()=>setActiveTool('settings')}
+              onSelect={(k)=>handleTabChange(k as ToolKey)}
+              onSettings={()=>handleTabChange('settings')}
               onLogout={()=>{ dispatch(logout()); router.replace('/'); }}
             />
 
@@ -171,7 +181,7 @@ export default function PanelPage() {
                   <SearchParamsSync onTabChange={(tab)=>setActiveTool(tab)} />
                 </Suspense>
                 {activeTool === "budget" ? (
-                  <UserBudget />
+                  <UserBudget onNavigateToSettings={() => handleTabChange('settings')} />
                 ) : (
                   <PanelContent
                     activeTool={activeTool}

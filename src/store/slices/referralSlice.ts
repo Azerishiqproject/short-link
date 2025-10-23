@@ -1,4 +1,5 @@
 import { createAsyncThunk, createSlice } from "@reduxjs/toolkit";
+import { refreshAccessTokenThunk, handleUnauthorized } from "./authSlice";
 
 // Types
 export interface ReferralSettings {
@@ -102,27 +103,54 @@ const initialState: ReferralState = {
 
 const API_URL = process.env.API_URL;
 
+const callApi = async (
+  url: string,
+  options: RequestInit,
+  dispatch: any,
+  getState: any,
+  retry = 0
+) => {
+  let res = await fetch(url, options);
+  if (res.status === 401 && retry < 1) {
+    const r = await dispatch(refreshAccessTokenThunk());
+    if (r.meta.requestStatus === "fulfilled") {
+      const newToken = r.payload.token;
+      const newOptions = {
+        ...options,
+        headers: { ...(options.headers || {}), Authorization: `Bearer ${newToken}` },
+      };
+      return callApi(url, newOptions, dispatch, getState, retry + 1);
+    } else {
+      dispatch(handleUnauthorized());
+      throw new Error("Unauthorized");
+    }
+  }
+  if (!res.ok) {
+    const data = await res.json().catch(() => ({}));
+    throw new Error(data.error || "API error");
+  }
+  return res;
+};
+
 // Async Thunks
 
 // Fetch referral settings
 export const fetchReferralSettingsThunk = createAsyncThunk(
   "referral/fetchSettings",
-  async (_, { rejectWithValue }) => {
+  async (_, { rejectWithValue, dispatch, getState }) => {
     try {
       const token = typeof window !== 'undefined' ? localStorage.getItem("token") : null;
-      const response = await fetch(`${API_URL}/api/admin/referrals/settings`, {
-        headers: { Authorization: `Bearer ${token}` },
-      });
-      
-      if (!response.ok) {
-        const error = await response.json();
-        return rejectWithValue(error.error || "Failed to fetch settings");
-      }
+      const response = await callApi(
+        `${API_URL}/api/admin/referrals/settings`,
+        { headers: { Authorization: `Bearer ${token}` } },
+        dispatch,
+        getState
+      );
       
       const data = await response.json();
       return data.settings;
-    } catch (error) {
-      return rejectWithValue("Network error");
+    } catch (error: any) {
+      return rejectWithValue(error.message || "Network error");
     }
   }
 );
@@ -130,34 +158,22 @@ export const fetchReferralSettingsThunk = createAsyncThunk(
 // Update referral settings
 export const updateReferralSettingsThunk = createAsyncThunk(
   "referral/updateSettings",
-  async (settingsData: Partial<ReferralSettings>, { rejectWithValue }) => {
+  async (settingsData: Partial<ReferralSettings>, { rejectWithValue, dispatch, getState }) => {
     try {
       const token = typeof window !== 'undefined' ? localStorage.getItem("token") : null;
-      const response = await fetch(`${API_URL}/api/admin/referrals/settings`, {
-        method: "PUT",
-        headers: {
-          "Content-Type": "application/json",
-          Authorization: `Bearer ${token}`,
+      const response = await callApi(
+        `${API_URL}/api/admin/referrals/settings`,
+        {
+          method: "PUT",
+          headers: {
+            "Content-Type": "application/json",
+            Authorization: `Bearer ${token}`,
+          },
+          body: JSON.stringify(settingsData),
         },
-        body: JSON.stringify(settingsData),
-      });
-      
-      if (!response.ok) {
-        let message = `HTTP ${response.status}`;
-        try {
-          const error = await response.json();
-          if (typeof (error as any)?.error === "string") message = (error as any).error;
-          else if ((error as any)?.error?.formErrors?.formErrors?.length) {
-            message = (error as any).error.formErrors.formErrors.join(", ");
-          } else if ((error as any)?.error?.fieldErrors) {
-            const fields = Object.entries((error as any).error.fieldErrors)
-              .map(([k, v]: any) => `${k}: ${Array.isArray(v)? v.join("; ") : String(v)}`)
-              .join(", ");
-            if (fields) message = fields;
-          }
-        } catch {}
-        return rejectWithValue(message || "Failed to update settings");
-      }
+        dispatch,
+        getState
+      );
       
       const data = await response.json();
       return data.settings;
@@ -170,7 +186,7 @@ export const updateReferralSettingsThunk = createAsyncThunk(
 // Fetch referral transactions
 export const fetchReferralTransactionsThunk = createAsyncThunk(
   "referral/fetchTransactions",
-  async (params: { page?: number; limit?: number; status?: string; paymentStatus?: string } = {}, { rejectWithValue }) => {
+  async (params: { page?: number; limit?: number; status?: string; paymentStatus?: string } = {}, { rejectWithValue, dispatch, getState }) => {
     try {
       const token = typeof window !== 'undefined' ? localStorage.getItem("token") : null;
       const queryParams = new URLSearchParams();
@@ -180,19 +196,17 @@ export const fetchReferralTransactionsThunk = createAsyncThunk(
       if (params.status) queryParams.append("status", params.status);
       if (params.paymentStatus) queryParams.append("paymentStatus", params.paymentStatus);
       
-      const response = await fetch(`${API_URL}/api/admin/referrals/transactions?${queryParams}`, {
-        headers: { Authorization: `Bearer ${token}` },
-      });
-      
-      if (!response.ok) {
-        const error = await response.json();
-        return rejectWithValue(error.error || "Failed to fetch transactions");
-      }
+      const response = await callApi(
+        `${API_URL}/api/admin/referrals/transactions?${queryParams}`,
+        { headers: { Authorization: `Bearer ${token}` } },
+        dispatch,
+        getState
+      );
       
       const data = await response.json();
       return data;
-    } catch (error) {
-      return rejectWithValue("Network error");
+    } catch (error: any) {
+      return rejectWithValue(error.message || "Network error");
     }
   }
 );
@@ -200,27 +214,27 @@ export const fetchReferralTransactionsThunk = createAsyncThunk(
 // Update referral transaction
 export const updateReferralTransactionThunk = createAsyncThunk(
   "referral/updateTransaction",
-  async ({ id, data }: { id: string; data: Partial<ReferralTransaction> }, { rejectWithValue }) => {
+  async ({ id, data }: { id: string; data: Partial<ReferralTransaction> }, { rejectWithValue, dispatch, getState }) => {
     try {
       const token = typeof window !== 'undefined' ? localStorage.getItem("token") : null;
-      const response = await fetch(`${API_URL}/api/admin/referrals/transactions/${id}`, {
-        method: "PATCH",
-        headers: {
-          "Content-Type": "application/json",
-          Authorization: `Bearer ${token}`,
+      const response = await callApi(
+        `${API_URL}/api/admin/referrals/transactions/${id}`,
+        {
+          method: "PATCH",
+          headers: {
+            "Content-Type": "application/json",
+            Authorization: `Bearer ${token}`,
+          },
+          body: JSON.stringify(data),
         },
-        body: JSON.stringify(data),
-      });
-      
-      if (!response.ok) {
-        const error = await response.json();
-        return rejectWithValue(error.error || "Failed to update transaction");
-      }
+        dispatch,
+        getState
+      );
       
       const result = await response.json();
       return result.transaction;
-    } catch (error) {
-      return rejectWithValue("Network error");
+    } catch (error: any) {
+      return rejectWithValue(error.message || "Network error");
     }
   }
 );
@@ -228,22 +242,20 @@ export const updateReferralTransactionThunk = createAsyncThunk(
 // Fetch referral stats
 export const fetchReferralStatsThunk = createAsyncThunk(
   "referral/fetchStats",
-  async (_, { rejectWithValue }) => {
+  async (_, { rejectWithValue, dispatch, getState }) => {
     try {
       const token = typeof window !== 'undefined' ? localStorage.getItem("token") : null;
-      const response = await fetch(`${API_URL}/api/admin/referrals/stats`, {
-        headers: { Authorization: `Bearer ${token}` },
-      });
-      
-      if (!response.ok) {
-        const error = await response.json();
-        return rejectWithValue(error.error || "Failed to fetch stats");
-      }
+      const response = await callApi(
+        `${API_URL}/api/admin/referrals/stats`,
+        { headers: { Authorization: `Bearer ${token}` } },
+        dispatch,
+        getState
+      );
       
       const data = await response.json();
       return data;
-    } catch (error) {
-      return rejectWithValue("Network error");
+    } catch (error: any) {
+      return rejectWithValue(error.message || "Network error");
     }
   }
 );
@@ -251,27 +263,27 @@ export const fetchReferralStatsThunk = createAsyncThunk(
 // Bulk pay transactions
 export const bulkPayReferralTransactionsThunk = createAsyncThunk(
   "referral/bulkPay",
-  async (transactionIds: string[], { rejectWithValue }) => {
+  async (transactionIds: string[], { rejectWithValue, dispatch, getState }) => {
     try {
       const token = typeof window !== 'undefined' ? localStorage.getItem("token") : null;
-      const response = await fetch(`${API_URL}/api/admin/referrals/bulk-pay`, {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-          Authorization: `Bearer ${token}`,
+      const response = await callApi(
+        `${API_URL}/api/admin/referrals/bulk-pay`,
+        {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+            Authorization: `Bearer ${token}`,
+          },
+          body: JSON.stringify({ transactionIds }),
         },
-        body: JSON.stringify({ transactionIds }),
-      });
-      
-      if (!response.ok) {
-        const error = await response.json();
-        return rejectWithValue(error.error || "Failed to bulk pay");
-      }
+        dispatch,
+        getState
+      );
       
       const data = await response.json();
       return data;
-    } catch (error) {
-      return rejectWithValue("Network error");
+    } catch (error: any) {
+      return rejectWithValue(error.message || "Network error");
     }
   }
 );

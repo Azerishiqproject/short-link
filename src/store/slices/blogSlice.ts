@@ -1,6 +1,6 @@
 import { createSlice, createAsyncThunk, PayloadAction } from "@reduxjs/toolkit";
 
-const API_URL = process.env.API_URL || "http://localhost:5050";
+const API_URL = process.env.API_URL ;
 
 // Types
 export interface BlogPost {
@@ -48,7 +48,6 @@ export interface BlogState {
   pagination: BlogPagination | null;
   loading: boolean;
   error: string | null;
-  searchTerm: string;
   selectedCategory: string;
 }
 
@@ -61,28 +60,67 @@ const initialState: BlogState = {
   pagination: null,
   loading: false,
   error: null,
-  searchTerm: "",
   selectedCategory: "Tümü",
 };
 
 // Async Thunks
 export const fetchBlogPostsThunk = createAsyncThunk<
   { posts: BlogPost[]; pagination: BlogPagination },
-  { page?: number; limit?: number; category?: string; search?: string }
+  { page?: number; limit?: number; category?: string; retryCount?: number }
 >(
   "blog/fetchPosts",
-  async ({ page = 1, limit = 10, category = "", search = "" }) => {
-    const params = new URLSearchParams({
-      page: page.toString(),
-      limit: limit.toString(),
-    });
-    
-    if (category) params.append("category", category);
-    if (search) params.append("search", search);
+  async ({ page = 1, limit = 10, category = "", retryCount = 0 }, { rejectWithValue }) => {
+    const maxRetries = 3;
+    const retryDelay = 1000; // 1 second
 
-    const res = await fetch(`${API_URL}/api/blog/posts?${params}`);
-    if (!res.ok) throw new Error("Failed to fetch blog posts");
-    return await res.json();
+    for (let attempt = 0; attempt <= maxRetries; attempt++) {
+      try {
+        const params = new URLSearchParams({
+          page: page.toString(),
+          limit: limit.toString(),
+        });
+        
+        if (category) params.append("category", category);
+
+        const res = await fetch(`${API_URL}/api/blog/posts?${params}`, {
+          method: 'GET',
+          headers: {
+            'Content-Type': 'application/json',
+          },
+          // Add timeout
+          signal: AbortSignal.timeout(15000), // 15 second timeout
+        });
+        
+        if (!res.ok) {
+          const errorData = await res.json().catch(() => ({}));
+          throw new Error(errorData.error || `HTTP ${res.status}: Failed to fetch blog posts`);
+        }
+        
+        const data = await res.json();
+        
+        // Validate response structure
+        if (!data.posts || !Array.isArray(data.posts)) {
+          throw new Error("Invalid response format from server");
+        }
+        
+        return data;
+      } catch (error) {
+        console.error(`Blog posts fetch error (attempt ${attempt + 1}/${maxRetries + 1}):`, error);
+        
+        // If this is the last attempt, reject with error
+        if (attempt === maxRetries) {
+          if (error instanceof Error) {
+            return rejectWithValue(error.message);
+          }
+          return rejectWithValue("An unexpected error occurred");
+        }
+        
+        // Wait before retrying
+        await new Promise(resolve => setTimeout(resolve, retryDelay * (attempt + 1)));
+      }
+    }
+    
+    return rejectWithValue("Max retries exceeded");
   }
 );
 
@@ -100,10 +138,35 @@ export const fetchBlogPostThunk = createAsyncThunk<BlogPost, string>(
 
 export const fetchBlogCategoriesThunk = createAsyncThunk<BlogCategory[]>(
   "blog/fetchCategories",
-  async () => {
-    const res = await fetch(`${API_URL}/api/blog/categories`);
-    if (!res.ok) throw new Error("Failed to fetch categories");
-    return await res.json();
+  async (_, { rejectWithValue }) => {
+    try {
+      const res = await fetch(`${API_URL}/api/blog/categories`, {
+        method: 'GET',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        signal: AbortSignal.timeout(10000),
+      });
+      
+      if (!res.ok) {
+        const errorData = await res.json().catch(() => ({}));
+        throw new Error(errorData.error || `HTTP ${res.status}: Failed to fetch categories`);
+      }
+      
+      const data = await res.json();
+      
+      if (!Array.isArray(data)) {
+        throw new Error("Invalid response format from server");
+      }
+      
+      return data;
+    } catch (error) {
+      console.error("Blog categories fetch error:", error);
+      if (error instanceof Error) {
+        return rejectWithValue(error.message);
+      }
+      return rejectWithValue("An unexpected error occurred");
+    }
   }
 );
 
@@ -282,9 +345,6 @@ const blogSlice = createSlice({
   name: "blog",
   initialState,
   reducers: {
-    setSearchTerm: (state, action: PayloadAction<string>) => {
-      state.searchTerm = action.payload;
-    },
     setSelectedCategory: (state, action: PayloadAction<string>) => {
       state.selectedCategory = action.payload;
     },
@@ -294,6 +354,21 @@ const blogSlice = createSlice({
     clearCurrentPost: (state) => {
       state.currentPost = null;
     },
+    resetBlogState: (state) => {
+      state.posts = [];
+      state.categories = [];
+      state.currentPost = null;
+      state.relatedPosts = [];
+      state.featuredPosts = [];
+      state.pagination = null;
+      state.loading = false;
+      state.error = null;
+      state.selectedCategory = "Tümü";
+    },
+    forceRefresh: (state) => {
+      state.loading = true;
+      state.error = null;
+    },
   },
   extraReducers: (builder) => {
     // Fetch blog posts
@@ -301,10 +376,6 @@ const blogSlice = createSlice({
       .addCase(fetchBlogPostsThunk.pending, (state) => {
         state.loading = true;
         state.error = null;
-        // Pending durumunda posts'u temizle ki loading state doğru çalışsın
-        if (state.posts.length === 0) {
-          state.posts = [];
-        }
       })
       .addCase(fetchBlogPostsThunk.fulfilled, (state, action) => {
         state.loading = false;
@@ -481,6 +552,6 @@ const blogSlice = createSlice({
   },
 });
 
-export const { setSearchTerm, setSelectedCategory, clearError, clearCurrentPost } = blogSlice.actions;
+export const { setSelectedCategory, clearError, clearCurrentPost, resetBlogState, forceRefresh } = blogSlice.actions;
 export default blogSlice.reducer;
 

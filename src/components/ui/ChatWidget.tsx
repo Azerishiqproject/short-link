@@ -3,6 +3,7 @@
 import { useEffect, useRef, useState } from "react";
 import { useAppDispatch, useAppSelector } from "@/store";
 import { openMyThreadThunk, loadMyMessagesThunk, sendMyMessageThunk, listMyThreadsThunk, setSelectedThread, createSupportThreadThunk } from "@/store/slices/supportSlice";
+import { FaChevronDown } from "react-icons/fa";
 
 export default function ChatWidget() {
   const dispatch = useAppDispatch();
@@ -140,17 +141,22 @@ export default function ChatWidget() {
       {open && (
         <div className={containerClasses}>
           {/* Header */}
-          <div className="px-4 py-3 border-b border-black/10 dark:border-white/10 flex items-center justify-between bg-gradient-to-r from-blue-600 to-indigo-600 text-white">
-            <div className="flex items-center gap-2">
+          <div className="px-4 py-4 border-b border-slate-200 dark:border-slate-700 flex items-center justify-between bg-gradient-to-r from-blue-600 to-indigo-600 text-white shadow-sm">
+            <div className="flex items-center gap-3">
               {isMobile && selectedThreadId && (
-                <button className="mr-1 rounded-full bg-white/20 hover:bg-white/30 px-2 py-1" onClick={() => { dispatch(setSelectedThread(null as any)); }}>
+                <button className="rounded-full bg-white/20 hover:bg-white/30 p-2 transition-colors duration-200" onClick={() => { dispatch(setSelectedThread(null as any)); }}>
                   <svg className="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M15 19l-7-7 7-7"/></svg>
                 </button>
               )}
-              <span className="inline-block w-2 h-2 rounded-full bg-emerald-300 animate-pulse"></span>
-              <div className="text-sm font-semibold">Destek</div>
+              <div className="flex items-center gap-3">
+                <div className="flex items-center gap-2">
+                  <div className="w-2 h-2 bg-emerald-400 rounded-full animate-pulse"></div>
+                  <span className="text-xs text-emerald-200">Çevrimiçi</span>
+                </div>
+                <div className="text-base font-semibold">Destek Ekibi</div>
+              </div>
             </div>
-            <button className="text-white/80 hover:text-white" onClick={() => setOpen(false)}>
+            <button className="text-white/80 hover:text-white p-1 rounded-full hover:bg-white/10 transition-colors duration-200" onClick={() => setOpen(false)}>
               <svg className="w-5 h-5" viewBox="0 0 24 24" fill="none" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M6 18L18 6M6 6l12 12"/></svg>
             </button>
           </div>
@@ -193,11 +199,19 @@ export default function ChatWidget() {
               </div>
 
               {/* Right: messages */}
-              <div className="col-span-2 flex flex-col">
-                <div className="px-3 py-2 border-b border-black/10 dark:border-white/10 bg-white/80 dark:bg-slate-900/60">
+              <div className="col-span-2 flex flex-col h-[500px]">
+                <div className="px-3 py-2 border-b border-black/10 dark:border-white/10 bg-white/80 dark:bg-slate-900/60 flex-shrink-0">
                   <div className="text-[12px] text-slate-600 dark:text-slate-300">Sohbet</div>
                 </div>
-                <div ref={listRef} onScroll={handleScroll} className="relative flex-1 overflow-y-auto p-3 space-y-2 bg-white/60 dark:bg-slate-900/60">
+                <div 
+                  ref={listRef} 
+                  onScroll={handleScroll} 
+                  className="relative flex-1 overflow-y-auto p-3 space-y-2 bg-white/60 dark:bg-slate-900/60 min-h-0"
+                  style={{
+                    scrollbarWidth: 'thin',
+                    scrollbarColor: '#cbd5e1 transparent'
+                  }}
+                >
                   {token && activeMessagesPagination && (activeMessagesPagination.page * activeMessagesPagination.limit) < (activeMessagesPagination.total || 0) && (
                     <div className="flex justify-center mb-2">
                       <button onClick={loadPrevPage} className="text-[11px] px-3 py-1 rounded-full border bg-white dark:bg-slate-800">Daha eski mesajları yükle</button>
@@ -221,7 +235,7 @@ export default function ChatWidget() {
                     <button onClick={scrollToBottom} className="absolute bottom-3 right-3 text-[11px] px-3 py-1 rounded-full border bg-white shadow-sm dark:bg-slate-800">Aşağı in</button>
                   )}
                 </div>
-                <div className="p-2 border-t border-black/10 dark:border-white/10 bg-white/80 dark:bg-slate-900/80 flex items-center gap-2">
+                <div className="p-2 border-t border-black/10 dark:border-white/10 bg-white/80 dark:bg-slate-900/80 flex items-center gap-2 flex-shrink-0">
                   <input value={input} onChange={(e)=>setInput(e.target.value)} onKeyDown={(e)=>{ if (e.key==='Enter') sendMessage(); }} placeholder={!token?"Giriş yapın":"Mesaj yazın..."} disabled={!token} className="flex-1 h-11 rounded-full border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 text-slate-900 dark:text-white px-4 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500/40 disabled:opacity-60" />
                   <button onClick={sendMessage} disabled={!token || !input.trim()} className="h-11 px-4 rounded-full bg-blue-600 text-white text-sm hover:bg-blue-700 disabled:opacity-50">
                     <svg className="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M5 12h14M12 5l7 7-7 7"/></svg>
@@ -233,41 +247,116 @@ export default function ChatWidget() {
             // Mobile: step view (threads list OR messages)
             <div className="flex flex-col h-full">
               {!selectedThreadId ? (
-                <div className="flex-1 overflow-y-auto">
-                  <div className="p-2 flex items-center gap-2 border-b border-black/10 dark:border-white/10">
-                    <input value={subject} onChange={(e)=>setSubject(e.target.value)} placeholder="Konu (opsiyonel)" className="flex-1 h-9 px-3 rounded-md text-sm border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800" />
-                    <button onClick={createNewThread} disabled={creating || !token} className="h-9 px-3 rounded-md text-sm bg-blue-600 text-white disabled:opacity-50">Yeni</button>
+                <div className="flex flex-col h-full">
+                  <div className="p-3 flex items-center gap-2 border-b border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800 flex-shrink-0">
+                    <input value={subject} onChange={(e)=>setSubject(e.target.value)} placeholder="Konu (opsiyonel)" className="flex-1 h-10 px-3 rounded-lg text-sm border border-slate-200 dark:border-slate-600 bg-white dark:bg-slate-700 text-slate-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-blue-500" />
+                    <button onClick={createNewThread} disabled={creating || !token} className="h-10 px-4 rounded-lg text-sm bg-blue-600 text-white disabled:opacity-50 font-medium">Yeni</button>
                   </div>
-                  <div className="divide-y divide-slate-200 dark:divide-slate-700">
-                    {myThreads.slice().sort((a,b)=> new Date(b.lastMessageAt).getTime() - new Date(a.lastMessageAt).getTime()).map(t => (
-                      <button key={t._id} onClick={()=> changeThread(t._id)} className="w-full text-left px-3 py-3 hover:bg-slate-50 dark:hover:bg-slate-800">
-                        <div className="text-sm font-medium truncate">{t.subject || 'Destek Talebi'}</div>
-                        <div className="mt-1 text-[11px] text-slate-500">{new Date(t.lastMessageAt).toLocaleString('tr-TR')}</div>
-                      </button>
-                    ))}
+                  <div className="flex-1 overflow-y-auto min-h-0">
+                    <div className="divide-y divide-slate-200 dark:divide-slate-700">
+                      {myThreads.slice().sort((a,b)=> new Date(b.lastMessageAt).getTime() - new Date(a.lastMessageAt).getTime()).map(t => (
+                        <button key={t._id} onClick={()=> changeThread(t._id)} className="w-full text-left px-4 py-4 hover:bg-slate-50 dark:hover:bg-slate-800 active:bg-slate-100 dark:active:bg-slate-700">
+                          <div className="text-sm font-medium truncate text-slate-900 dark:text-white">{t.subject || 'Destek Talebi'}</div>
+                          <div className="mt-1 text-xs text-slate-500 dark:text-slate-400">{new Date(t.lastMessageAt).toLocaleString('tr-TR')}</div>
+                        </button>
+                      ))}
+                    </div>
                   </div>
                 </div>
               ) : (
-                <div className="flex-1 flex flex-col">
-                  <div className="px-3 py-2 border-b border-black/10 dark:border-white/10 bg-white/80 dark:bg-slate-900/60 text-[12px]">Sohbet</div>
-                  <div ref={listRef} onScroll={handleScroll} className="relative flex-1 overflow-y-auto p-3 space-y-2">
-                    {myMessages.map((m)=> (
-                      <div key={m._id} className={`flex ${((m as any).senderRole || (m as any).role) === 'user' ? 'justify-end' : 'justify-start'}`}>
-                        <div className={`${((m as any).senderRole || (m as any).role) === 'user' ? 'bg-blue-600 text-white' : 'bg-slate-100 dark:bg-slate-800 text-slate-900 dark:text-white'} px-3 py-2 rounded-2xl text-xs max-w-[85%] shadow-sm`}>
-                          <div className="whitespace-pre-wrap break-words">{m.content}</div>
-                          <div className="opacity-60 mt-1 text-[10px]">{new Date(m.createdAt).toLocaleString('tr-TR')}</div>
+                <div className="flex flex-col h-full">
+                  <div className="px-4 py-3 border-b border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800 flex-shrink-0">
+                    <div className="text-sm font-medium text-slate-900 dark:text-white">Sohbet</div>
+                  </div>
+                  <div 
+                    ref={listRef} 
+                    onScroll={handleScroll} 
+                    className="relative flex-1 overflow-y-auto min-h-0 p-4 space-y-3 bg-slate-50 dark:bg-slate-900 max-h-[calc(80vh-200px)]"
+                    style={{
+                      scrollbarWidth: 'thin',
+                      scrollbarColor: '#cbd5e1 transparent'
+                    }}
+                  >
+                    {token && activeMessagesPagination && (activeMessagesPagination.page * activeMessagesPagination.limit) < (activeMessagesPagination.total || 0) && (
+                      <div className="flex justify-center mb-3">
+                        <button onClick={loadPrevPage} className="text-xs px-4 py-2 rounded-full border border-slate-200 dark:border-slate-600 bg-white dark:bg-slate-800 text-slate-700 dark:text-slate-300">Daha eski mesajları yükle</button>
+                      </div>
+                    )}
+                    {!token ? (
+                      <div className="flex flex-col items-center justify-center py-12 text-center">
+                        <div className="w-16 h-16 bg-slate-100 dark:bg-slate-800 rounded-full flex items-center justify-center mb-4">
+                          <svg className="w-8 h-8 text-slate-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" />
+                          </svg>
+                        </div>
+                        <h3 className="text-lg font-semibold text-slate-900 dark:text-white mb-2">Giriş Yapın</h3>
+                        <p className="text-sm text-slate-600 dark:text-slate-400">Destek hizmetlerimizden yararlanmak için lütfen giriş yapın.</p>
+                      </div>
+                    ) : (!myMessages || myMessages.length === 0) ? (
+                      <div className="flex flex-col items-center justify-center py-12 text-center">
+                        <div className="w-16 h-16 bg-blue-100 dark:bg-blue-900/30 rounded-full flex items-center justify-center mb-4">
+                          <svg className="w-8 h-8 text-blue-600 dark:text-blue-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M8 10h.01M12 10h.01M16 10h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4-.8L3 20l.8-3.2A7.7 7.7 0 013 12c0-4.418 4.03-8 9-8s9 3.582 9 8z" />
+                          </svg>
+                        </div>
+                        <h3 className="text-lg font-semibold text-slate-900 dark:text-white mb-2">Merhaba! 👋</h3>
+                        <p className="text-sm text-slate-600 dark:text-slate-400 mb-4">Size nasıl yardımcı olabiliriz? Mesajınızı yazın, destek talebiniz oluşturulacak.</p>
+                        <div className="flex flex-wrap gap-2 justify-center">
+                          <span className="px-3 py-1 bg-blue-100 dark:bg-blue-900/30 text-blue-700 dark:text-blue-300 rounded-full text-xs">Hızlı yanıt</span>
+                          <span className="px-3 py-1 bg-green-100 dark:bg-green-900/30 text-green-700 dark:text-green-300 rounded-full text-xs">7/24 destek</span>
+                          <span className="px-3 py-1 bg-purple-100 dark:bg-purple-900/30 text-purple-700 dark:text-purple-300 rounded-full text-xs">Uzman ekip</span>
                         </div>
                       </div>
-                    ))}
+                    ) : (
+                      myMessages.map((m) => (
+                        <div key={m._id} className={`flex ${((m as any).senderRole || (m as any).role) === "user" ? "justify-end" : "justify-start"} mb-4`}>
+                          <div className={`${((m as any).senderRole || (m as any).role) === "user" ? "bg-gradient-to-r from-blue-600 to-blue-700 text-white" : "bg-white dark:bg-slate-800 text-slate-900 dark:text-white border border-slate-200 dark:border-slate-700"} px-4 py-3 rounded-2xl text-sm max-w-[85%] shadow-lg hover:shadow-xl transition-shadow duration-200`}>
+                            <div className="whitespace-pre-wrap break-words leading-relaxed">{m.content}</div>
+                            <div className="opacity-70 mt-2 text-xs flex items-center gap-1">
+                              <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
+                              </svg>
+                              {new Date(m.createdAt).toLocaleString("tr-TR")}
+                            </div>
+                          </div>
+                        </div>
+                      ))
+                    )}
                     {showScrollToBottom && (
-                      <button onClick={scrollToBottom} className="absolute bottom-3 right-3 text-[11px] px-3 py-1 rounded-full border bg-white shadow-sm dark:bg-slate-800">Aşağı in</button>
+                      <button onClick={scrollToBottom} className="absolute bottom-4 right-4 text-xs px-3 py-2 rounded-full border border-slate-200 dark:border-slate-600 bg-white dark:bg-slate-800 text-slate-700 dark:text-slate-300 shadow-lg flex items-center gap-1">
+                        <FaChevronDown className="w-3 h-3" />
+                        Aşağı in
+                      </button>
                     )}
                   </div>
-                  <div className="p-2 border-t border-black/10 dark:border-white/10 bg-white/80 dark:bg-slate-900/80 flex items-center gap-2">
-                    <input value={input} onChange={(e)=>setInput(e.target.value)} onKeyDown={(e)=>{ if (e.key==='Enter') sendMessage(); }} placeholder={!token?"Giriş yapın":"Mesaj yazın..."} disabled={!token} className="flex-1 h-11 rounded-full border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 text-slate-900 dark:text-white px-4 text-sm focus:outline-none" />
-                    <button onClick={sendMessage} disabled={!token || !input.trim()} className="h-11 px-4 rounded-full bg-blue-600 text-white text-sm disabled:opacity-50">
-                      <svg className="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M5 12h14M12 5l7 7-7 7"/></svg>
-                    </button>
+                  <div className="p-4 border-t border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 flex-shrink-0 pb-16">
+                    <div className="flex items-center gap-3">
+                      <div className="flex-1 relative">
+                        <input 
+                          value={input} 
+                          onChange={(e)=>setInput(e.target.value)} 
+                          onKeyDown={(e)=>{ if (e.key==='Enter') sendMessage(); }} 
+                          placeholder={!token?"Giriş yapın":"Mesajınızı yazın..."} 
+                          disabled={!token} 
+                          className="w-full h-12 rounded-full border border-slate-200 dark:border-slate-600 bg-slate-50 dark:bg-slate-700 text-slate-900 dark:text-white px-4 pr-12 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent disabled:opacity-60 transition-all duration-200" 
+                        />
+                        {input.trim() && (
+                          <div className="absolute right-3 top-1/2 transform -translate-y-1/2 text-xs text-slate-400">
+                            {input.length}/500
+                          </div>
+                        )}
+                      </div>
+                      <button 
+                        onClick={sendMessage} 
+                        disabled={!token || !input.trim()} 
+                        className="h-12 w-12 rounded-full bg-gradient-to-r from-blue-600 to-blue-700 text-white hover:from-blue-700 hover:to-blue-800 disabled:opacity-50 flex items-center justify-center shadow-lg hover:shadow-xl transition-all duration-200 disabled:cursor-not-allowed"
+                      >
+                        <svg className="w-5 h-5" viewBox="0 0 24 24" fill="none" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M5 12h14M12 5l7 7-7 7"/></svg>
+                      </button>
+                    </div>
+                    <div className="mt-2 text-xs text-slate-500 dark:text-slate-400 text-center">
+                      Enter tuşu ile gönder • Shift+Enter ile yeni satır
+                    </div>
                   </div>
                 </div>
               )}

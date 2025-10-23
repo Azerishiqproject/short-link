@@ -114,13 +114,21 @@ export default function UsersList({}: UsersListProps) {
       />)}
       {showBans && (
         <div className="space-y-2">
-          <div className="text-sm font-semibold">Banlanan Kayıtlar ({bans.length})</div>
+          <div className="flex items-center justify-between">
+            <div className="text-sm font-semibold">Banlanan Kayıtlar ({bans.length})</div>
+            <div className="text-xs text-slate-500 dark:text-slate-400">
+              Kapsamlı banlar: {bans.filter(b => b.banType === 'comprehensive').length} | 
+              Tekil banlar: {bans.filter(b => b.banType !== 'comprehensive').length}
+            </div>
+          </div>
           <div className="overflow-x-auto">
             <table className="min-w-full text-sm text-slate-900 dark:text-white">
               <thead>
                 <tr className="text-left border-b border-black/10 dark:border-white/10">
-                  <th className="py-2 pr-4">IP</th>
-                  <th className="py-2 pr-4">Cihaz Kimliği</th>
+                  <th className="py-2 pr-4">Email</th>
+                  <th className="py-2 pr-4">IP'ler</th>
+                  <th className="py-2 pr-4">Cihaz Kimlikleri</th>
+                  <th className="py-2 pr-4">Ban Tipi</th>
                   <th className="py-2 pr-4">Aktif</th>
                   <th className="py-2 pr-4">Bitiş</th>
                   <th className="py-2 pr-4">Sebep</th>
@@ -129,10 +137,49 @@ export default function UsersList({}: UsersListProps) {
               <tbody>
                 {bans.map((b) => (
                   <tr key={b._id} className="border-b border-black/5 dark:border-white/5">
-                    <td className="py-2 pr-4">{b.ip || '-'}</td>
-                    <td className="py-2 pr-4">{b.mac || '-'}</td>
-                    <td className="py-2 pr-4">{b.active ? 'Evet' : 'Hayır'}</td>
-                    <td className="py-2 pr-4">{b.expiresAt ? new Date(b.expiresAt).toLocaleString() : '-'}</td>
+                    <td className="py-2 pr-4">
+                      <div className="space-y-1">
+                        {b.email && <div className="text-xs bg-blue-100 dark:bg-blue-900/30 px-2 py-1 rounded">{b.email}</div>}
+                        {b.emails && b.emails.length > 0 && b.emails.map((email: string, idx: number) => (
+                          <div key={idx} className="text-xs bg-blue-100 dark:bg-blue-900/30 px-2 py-1 rounded">{email}</div>
+                        ))}
+                      </div>
+                    </td>
+                    <td className="py-2 pr-4">
+                      <div className="space-y-1">
+                        {b.ip && <div className="text-xs bg-red-100 dark:bg-red-900/30 px-2 py-1 rounded">{b.ip}</div>}
+                        {b.ips && b.ips.length > 0 && b.ips.map((ip: string, idx: number) => (
+                          <div key={idx} className="text-xs bg-red-100 dark:bg-red-900/30 px-2 py-1 rounded">{ip}</div>
+                        ))}
+                      </div>
+                    </td>
+                    <td className="py-2 pr-4">
+                      <div className="space-y-1">
+                        {b.mac && <div className="text-xs bg-green-100 dark:bg-green-900/30 px-2 py-1 rounded">{b.mac}</div>}
+                        {b.deviceIds && b.deviceIds.length > 0 && b.deviceIds.map((deviceId: string, idx: number) => (
+                          <div key={idx} className="text-xs bg-green-100 dark:bg-green-900/30 px-2 py-1 rounded">{deviceId}</div>
+                        ))}
+                      </div>
+                    </td>
+                    <td className="py-2 pr-4">
+                      <span className={`px-2 py-1 rounded-full text-xs font-medium ${
+                        b.banType === 'comprehensive' 
+                          ? 'bg-purple-100 text-purple-800 dark:bg-purple-900/30 dark:text-purple-300' 
+                          : 'bg-gray-100 text-gray-800 dark:bg-gray-900/30 dark:text-gray-300'
+                      }`}>
+                        {b.banType === 'comprehensive' ? 'Kapsamlı' : 'Tekil'}
+                      </span>
+                    </td>
+                    <td className="py-2 pr-4">
+                      <span className={`px-2 py-1 rounded-full text-xs font-medium ${
+                        b.active 
+                          ? 'bg-red-100 text-red-800 dark:bg-red-900/30 dark:text-red-300' 
+                          : 'bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-300'
+                      }`}>
+                        {b.active ? 'Aktif' : 'Pasif'}
+                      </span>
+                    </td>
+                    <td className="py-2 pr-4">{b.expiresAt ? new Date(b.expiresAt).toLocaleString() : 'Kalıcı'}</td>
                     <td className="py-2 pr-4">{b.reason || '-'}</td>
                   </tr>
                 ))}

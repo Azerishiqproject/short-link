@@ -4,7 +4,23 @@ import Pagination from "../common/Pagination";
 import UserDetailModal from "./UserDetailModal";
 import { useState } from "react";
 
-type ApiUser = { id?: string; _id?: string; email: string; name?: string; role: string; createdAt?: string; balance?: number; available_balance?: number; reserved_balance?: number; display_available?: number; display_reserved?: number; earned_balance?: number; reserved_earned_balance?: number };
+type ApiUser = { 
+  id?: string; 
+  _id?: string; 
+  email: string; 
+  name?: string; 
+  role: string; 
+  createdAt?: string; 
+  balance?: number; 
+  available_balance?: number; 
+  reserved_balance?: number; 
+  display_available?: number; 
+  display_reserved?: number; 
+  earned_balance?: number; 
+  reserved_earned_balance?: number;
+  referral_earned?: number;
+  reserved_referral_earned?: number;
+};
 
 interface UsersTableProps {
   users: ApiUser[];
@@ -60,8 +76,9 @@ export default function UsersTable({
               <th className="py-2 pr-4">E-posta</th>
               <th className="py-2 pr-4">Rol</th>
               <th className="py-2 pr-4">Oluşturulma</th>
-              <th className="py-2 pr-4">Bakiye (Kullanılabilir)</th>
-              <th className="py-2 pr-4">Earned (Avail/Res.)</th>
+              <th className="py-2 pr-4">Toplam Bakiye</th>
+              <th className="py-2 pr-4">Link Kazancı</th>
+              <th className="py-2 pr-4">Referans Kazancı</th>
               <th className="py-2 pr-4">Detay</th>
             </tr>
           </thead>
@@ -72,13 +89,25 @@ export default function UsersTable({
                 <td className="py-2 pr-4">{u.email}</td>
                 <td className="py-2 pr-4">{u.role}</td>
                 <td className="py-2 pr-4">{u.createdAt ? new Date(u.createdAt).toLocaleString() : "-"}</td>
-                <td className="py-2 pr-4">{`₺${Number((u as any).display_available ?? u.available_balance ?? u.balance ?? 0).toLocaleString()}`}</td>
                 <td className="py-2 pr-4">
                   {(() => {
-                    const earned = Number((u as any).earned_balance ?? 0);
-                    const reserved = Number((u as any).reserved_earned_balance ?? 0);
-                    const avail = Math.max(earned - reserved, 0);
-                    return `₺${avail.toLocaleString()} / ₺${reserved.toLocaleString()}`;
+                    // Toplam bakiye = available_balance (kullanılabilir bakiye)
+                    const totalBalance = Number(u.available_balance ?? u.balance ?? 0);
+                    return `₺${totalBalance.toLocaleString()}`;
+                  })()}
+                </td>
+                <td className="py-2 pr-4">
+                  {(() => {
+                    // Link kazancı = earned_balance (link kısaltmalardan gelen)
+                    const earnedBalance = Number(u.earned_balance ?? 0);
+                    return `₺${earnedBalance.toLocaleString()}`;
+                  })()}
+                </td>
+                <td className="py-2 pr-4">
+                  {(() => {
+                    // Referans kazancı = referral_earned
+                    const referralBalance = Number(u.referral_earned ?? 0);
+                    return `₺${referralBalance.toLocaleString()}`;
                   })()}
                 </td>
                 <td className="py-2 pr-4">

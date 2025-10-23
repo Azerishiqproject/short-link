@@ -78,26 +78,46 @@ const initialState: LinksState = {
 
 const API_URL = process.env.API_URL;
 
+const callApi = async (
+  url: string,
+  options: RequestInit,
+  dispatch: any,
+  getState: any,
+  retry = 0
+) => {
+  let res = await fetch(url, options);
+  if (res.status === 401 && retry < 1) {
+    const r = await dispatch(refreshAccessTokenThunk());
+    if (r.meta.requestStatus === "fulfilled") {
+      const newToken = r.payload.token;
+      const newOptions = {
+        ...options,
+        headers: { ...(options.headers || {}), Authorization: `Bearer ${newToken}` },
+      };
+      return callApi(url, newOptions, dispatch, getState, retry + 1);
+    } else {
+      dispatch(handleUnauthorized());
+      throw new Error("Unauthorized");
+    }
+  }
+  if (!res.ok) {
+    const data = await res.json().catch(() => ({}));
+    throw new Error(data.error || "API error");
+  }
+  return res;
+};
+
 // Fetch user's links
 export const fetchLinksThunk = createAsyncThunk(
   "links/fetchLinks",
-  async (token: string, { rejectWithValue, dispatch }) => {
+  async (token: string, { rejectWithValue, dispatch, getState }) => {
     try {
-      let res = await fetch(`${API_URL}/api/links`, {
-        headers: { Authorization: `Bearer ${token}` },
-      });
-      if (res.status === 401) {
-        try {
-          await dispatch<any>(refreshAccessTokenThunk());
-          const newToken = (typeof window !== 'undefined' ? localStorage.getItem("token") : null) || token;
-          res = await fetch(`${API_URL}/api/links`, { headers: { Authorization: `Bearer ${newToken}` } });
-        } catch {}
-        if (res.status === 401) {
-          dispatch(handleUnauthorized());
-          return rejectWithValue("Unauthorized");
-        }
-      }
-      if (!res.ok) throw new Error("Linkler alınamadı");
+      const res = await callApi(
+        `${API_URL}/api/links`,
+        { headers: { Authorization: `Bearer ${token}` } },
+        dispatch,
+        getState
+      );
       const data = await res.json();
       return data.links || [];
     } catch (error: any) {
@@ -109,23 +129,14 @@ export const fetchLinksThunk = createAsyncThunk(
 // Fetch all links (admin)
 export const fetchAllLinksThunk = createAsyncThunk(
   "links/fetchAllLinks",
-  async (token: string, { rejectWithValue, dispatch }) => {
+  async (token: string, { rejectWithValue, dispatch, getState }) => {
     try {
-      let res = await fetch(`${API_URL}/api/links/admin/all`, {
-        headers: { Authorization: `Bearer ${token}` },
-      });
-      if (res.status === 401) {
-        try {
-          await dispatch<any>(refreshAccessTokenThunk());
-          const newToken = (typeof window !== 'undefined' ? localStorage.getItem("token") : null) || token;
-          res = await fetch(`${API_URL}/api/links/admin/all`, { headers: { Authorization: `Bearer ${newToken}` } });
-        } catch {}
-        if (res.status === 401) {
-          dispatch(handleUnauthorized());
-          return rejectWithValue("Unauthorized");
-        }
-      }
-      if (!res.ok) throw new Error("Tüm linkler alınamadı");
+      const res = await callApi(
+        `${API_URL}/api/links/admin/all`,
+        { headers: { Authorization: `Bearer ${token}` } },
+        dispatch,
+        getState
+      );
       const data = await res.json();
       return data.links || [];
     } catch (error: any) {

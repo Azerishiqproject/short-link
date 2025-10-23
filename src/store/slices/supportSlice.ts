@@ -1,4 +1,5 @@
 import { createAsyncThunk, createSlice } from "@reduxjs/toolkit";
+import { refreshAccessTokenThunk, handleUnauthorized } from "./authSlice";
 
 type Thread = {
   _id: string;
@@ -47,15 +48,48 @@ const initialState: SupportState = {
 
 const API_URL = process.env.API_URL as string;
 
+const callApi = async (
+  url: string,
+  options: RequestInit,
+  dispatch: any,
+  getState: any,
+  retry = 0
+) => {
+  let res = await fetch(url, options);
+  if (res.status === 401 && retry < 1) {
+    const r = await dispatch(refreshAccessTokenThunk());
+    if (r.meta.requestStatus === "fulfilled") {
+      const newToken = r.payload.token;
+      const newOptions = {
+        ...options,
+        headers: { ...(options.headers || {}), Authorization: `Bearer ${newToken}` },
+      };
+      return callApi(url, newOptions, dispatch, getState, retry + 1);
+    } else {
+      dispatch(handleUnauthorized());
+      throw new Error("Unauthorized");
+    }
+  }
+  if (!res.ok) {
+    const data = await res.json().catch(() => ({}));
+    throw new Error(data.error || "API error");
+  }
+  return res;
+};
+
 // User: ensure/open thread
 export const openMyThreadThunk = createAsyncThunk(
   "support/openMyThread",
-  async (token: string) => {
-    const res = await fetch(`${API_URL}/api/support/thread/open`, {
-      method: "POST",
-      headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
-    });
-    if (!res.ok) throw new Error("thread-open-failed");
+  async (token: string, { dispatch, getState }) => {
+    const res = await callApi(
+      `${API_URL}/api/support/thread/open`,
+      {
+        method: "POST",
+        headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
+      },
+      dispatch,
+      getState
+    );
     const data = await res.json();
     return data.thread as Thread;
   }
@@ -64,13 +98,17 @@ export const openMyThreadThunk = createAsyncThunk(
 // User: create new support thread explicitly
 export const createSupportThreadThunk = createAsyncThunk(
   "support/createThread",
-  async ({ token, subject }: { token: string; subject?: string }) => {
-    const res = await fetch(`${API_URL}/api/support/threads`, {
-      method: "POST",
-      headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
-      body: JSON.stringify(subject ? { subject } : {}),
-    });
-    if (!res.ok) throw new Error("create-thread-failed");
+  async ({ token, subject }: { token: string; subject?: string }, { dispatch, getState }) => {
+    const res = await callApi(
+      `${API_URL}/api/support/threads`,
+      {
+        method: "POST",
+        headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
+        body: JSON.stringify(subject ? { subject } : {}),
+      },
+      dispatch,
+      getState
+    );
     const data = await res.json();
     return data.thread as Thread;
   }
@@ -79,12 +117,16 @@ export const createSupportThreadThunk = createAsyncThunk(
 // User: list my threads
 export const listMyThreadsThunk = createAsyncThunk(
   "support/listMyThreads",
-  async ({ token, page = 1, limit = 20 }: { token: string; page?: number; limit?: number }) => {
-    const res = await fetch(`${API_URL}/api/support/threads/me?page=${page}&limit=${limit}`, {
-      headers: { Authorization: `Bearer ${token}` },
-      cache: "no-store",
-    });
-    if (!res.ok) throw new Error("list-my-threads-failed");
+  async ({ token, page = 1, limit = 20 }: { token: string; page?: number; limit?: number }, { dispatch, getState }) => {
+    const res = await callApi(
+      `${API_URL}/api/support/threads/me?page=${page}&limit=${limit}`,
+      {
+        headers: { Authorization: `Bearer ${token}` },
+        cache: "no-store",
+      },
+      dispatch,
+      getState
+    );
     const data = await res.json();
     return { threads: (data.threads || []) as Thread[], pagination: data.pagination } as any;
   }
@@ -93,12 +135,16 @@ export const listMyThreadsThunk = createAsyncThunk(
 // User: load my thread messages
 export const loadMyMessagesThunk = createAsyncThunk(
   "support/loadMyMessages",
-  async ({ token, threadId, page = 1, limit = 20 }: { token: string; threadId: string; page?: number; limit?: number }) => {
-    const res = await fetch(`${API_URL}/api/support/threads/${threadId}/messages?page=${page}&limit=${limit}` , {
-      headers: { Authorization: `Bearer ${token}` },
-      cache: "no-store",
-    });
-    if (!res.ok) throw new Error("load-messages-failed");
+  async ({ token, threadId, page = 1, limit = 20 }: { token: string; threadId: string; page?: number; limit?: number }, { dispatch, getState }) => {
+    const res = await callApi(
+      `${API_URL}/api/support/threads/${threadId}/messages?page=${page}&limit=${limit}`,
+      {
+        headers: { Authorization: `Bearer ${token}` },
+        cache: "no-store",
+      },
+      dispatch,
+      getState
+    );
     const data = await res.json();
     return { messages: data.messages as Message[], pagination: data.pagination } as any;
   }
@@ -107,13 +153,17 @@ export const loadMyMessagesThunk = createAsyncThunk(
 // User: send message
 export const sendMyMessageThunk = createAsyncThunk(
   "support/sendMyMessage",
-  async ({ token, threadId, content }: { token: string; threadId: string; content: string }) => {
-    const res = await fetch(`${API_URL}/api/support/threads/${threadId}/messages`, {
-      method: "POST",
-      headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
-      body: JSON.stringify({ content }),
-    });
-    if (!res.ok) throw new Error("send-failed");
+  async ({ token, threadId, content }: { token: string; threadId: string; content: string }, { dispatch, getState }) => {
+    const res = await callApi(
+      `${API_URL}/api/support/threads/${threadId}/messages`,
+      {
+        method: "POST",
+        headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
+        body: JSON.stringify({ content }),
+      },
+      dispatch,
+      getState
+    );
     const data = await res.json();
     return data.message as Message;
   }
@@ -122,12 +172,16 @@ export const sendMyMessageThunk = createAsyncThunk(
 // Admin: list threads
 export const adminListThreadsThunk = createAsyncThunk(
   "support/adminListThreads",
-  async ({ token, status, page = 1, limit = 20 }: { token: string; status?: "open" | "closed"; page?: number; limit?: number }) => {
-    const res = await fetch(`${API_URL}/api/support/admin/threads?status=${status || "open"}&page=${page}&limit=${limit}`, {
-      headers: { Authorization: `Bearer ${token}` },
-      cache: "no-store",
-    });
-    if (!res.ok) throw new Error("list-threads-failed");
+  async ({ token, status, page = 1, limit = 20 }: { token: string; status?: "open" | "closed"; page?: number; limit?: number }, { dispatch, getState }) => {
+    const res = await callApi(
+      `${API_URL}/api/support/admin/threads?status=${status || "open"}&page=${page}&limit=${limit}`,
+      {
+        headers: { Authorization: `Bearer ${token}` },
+        cache: "no-store",
+      },
+      dispatch,
+      getState
+    );
     const data = await res.json();
     return { threads: data.threads as Thread[], pagination: data.pagination } as any;
   }
@@ -136,12 +190,16 @@ export const adminListThreadsThunk = createAsyncThunk(
 // Admin: load messages for a thread
 export const adminLoadMessagesThunk = createAsyncThunk(
   "support/adminLoadMessages",
-  async ({ token, threadId, page = 1, limit = 20 }: { token: string; threadId: string; page?: number; limit?: number }) => {
-    const res = await fetch(`${API_URL}/api/support/threads/${threadId}/messages?page=${page}&limit=${limit}`, {
-      headers: { Authorization: `Bearer ${token}` },
-      cache: "no-store",
-    });
-    if (!res.ok) throw new Error("admin-load-messages-failed");
+  async ({ token, threadId, page = 1, limit = 20 }: { token: string; threadId: string; page?: number; limit?: number }, { dispatch, getState }) => {
+    const res = await callApi(
+      `${API_URL}/api/support/threads/${threadId}/messages?page=${page}&limit=${limit}`,
+      {
+        headers: { Authorization: `Bearer ${token}` },
+        cache: "no-store",
+      },
+      dispatch,
+      getState
+    );
     const data = await res.json();
     return { threadId, messages: data.messages as Message[], pagination: data.pagination } as any;
   }
@@ -150,13 +208,17 @@ export const adminLoadMessagesThunk = createAsyncThunk(
 // Admin: send message
 export const adminSendMessageThunk = createAsyncThunk(
   "support/adminSendMessage",
-  async ({ token, threadId, content }: { token: string; threadId: string; content: string }) => {
-    const res = await fetch(`${API_URL}/api/support/threads/${threadId}/messages`, {
-      method: "POST",
-      headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
-      body: JSON.stringify({ content }),
-    });
-    if (!res.ok) throw new Error("admin-send-failed");
+  async ({ token, threadId, content }: { token: string; threadId: string; content: string }, { dispatch, getState }) => {
+    const res = await callApi(
+      `${API_URL}/api/support/threads/${threadId}/messages`,
+      {
+        method: "POST",
+        headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
+        body: JSON.stringify({ content }),
+      },
+      dispatch,
+      getState
+    );
     const data = await res.json();
     return data.message as Message;
   }
@@ -165,12 +227,16 @@ export const adminSendMessageThunk = createAsyncThunk(
 // Admin: delete message
 export const adminDeleteMessageThunk = createAsyncThunk(
   "support/adminDeleteMessage",
-  async ({ token, threadId, messageId }: { token: string; threadId: string; messageId: string }) => {
-    const res = await fetch(`${API_URL}/api/support/admin/threads/${threadId}/messages/${messageId}`, {
-      method: "DELETE",
-      headers: { Authorization: `Bearer ${token}` },
-    });
-    if (!res.ok) throw new Error("delete-failed");
+  async ({ token, threadId, messageId }: { token: string; threadId: string; messageId: string }, { dispatch, getState }) => {
+    const res = await callApi(
+      `${API_URL}/api/support/admin/threads/${threadId}/messages/${messageId}`,
+      {
+        method: "DELETE",
+        headers: { Authorization: `Bearer ${token}` },
+      },
+      dispatch,
+      getState
+    );
     return { threadId, messageId };
   }
 );
@@ -178,12 +244,16 @@ export const adminDeleteMessageThunk = createAsyncThunk(
 // Admin: close thread
 export const adminCloseThreadThunk = createAsyncThunk(
   "support/adminCloseThread",
-  async ({ token, threadId }: { token: string; threadId: string }) => {
-    const res = await fetch(`${API_URL}/api/support/admin/threads/${threadId}/close`, {
-      method: "POST",
-      headers: { Authorization: `Bearer ${token}` },
-    });
-    if (!res.ok) throw new Error("close-failed");
+  async ({ token, threadId }: { token: string; threadId: string }, { dispatch, getState }) => {
+    const res = await callApi(
+      `${API_URL}/api/support/admin/threads/${threadId}/close`,
+      {
+        method: "POST",
+        headers: { Authorization: `Bearer ${token}` },
+      },
+      dispatch,
+      getState
+    );
     return threadId;
   }
 );

@@ -13,8 +13,9 @@ import { useAppDispatch, useAppSelector } from "@/store";
 import { 
   fetchBlogPostsThunk, 
   fetchBlogCategoriesThunk, 
-  setSearchTerm, 
-  setSelectedCategory 
+  setSelectedCategory,
+  resetBlogState,
+  forceRefresh
 } from "@/store/slices/blogSlice";
 import Pagination from "@/components/common/Pagination";
 
@@ -39,7 +40,7 @@ const fadeIn = {
 
 export default function BlogPage() {
   const dispatch = useAppDispatch();
-  const { posts, categories, loading, error, searchTerm, selectedCategory, pagination } = useAppSelector((s) => s.blog);
+  const { posts, categories, loading, error, selectedCategory, pagination } = useAppSelector((s) => s.blog);
 
   // Güvenli HTML renderer
   const sanitizeHTML = (html: string) => {
@@ -62,27 +63,92 @@ export default function BlogPage() {
     });
   };
 
-  // Her component mount'ta verileri çek
+  // Component mount'ta verileri çek (sadece bir kez)
   useEffect(() => {
-    dispatch(fetchBlogPostsThunk({ page: 1, limit: 9 }));
-    dispatch(fetchBlogCategoriesThunk());
-  }, [dispatch]);
+    const fetchData = async () => {
+      try {
+        // Eğer zaten veri varsa tekrar çekme
+        if (posts.length > 0 && !error) {
+          return;
+        }
+        
+        await Promise.all([
+          dispatch(fetchBlogPostsThunk({ page: 1, limit: 9 })),
+          dispatch(fetchBlogCategoriesThunk())
+        ]);
+      } catch (error) {
+        console.error("Error fetching blog data:", error);
+      }
+    };
 
-  // Not: Veriler boşsa tekrar tekrar çekmeyelim; boş durumda boş-state gösteriyoruz
+    fetchData();
+  }, []); // Boş dependency array - sadece mount'ta çalışsın
 
-  // Sayfa focus olduğunda verileri yenile
+  // Route change detection - sadece gerçek route değişikliklerinde çalışsın
+  useEffect(() => {
+    const handleRouteChange = () => {
+      // Sadece veri yoksa veya hata varsa yenile
+      if (posts.length === 0 || error) {
+        dispatch(forceRefresh());
+        dispatch(fetchBlogPostsThunk({ page: 1, limit: 9 }));
+        dispatch(fetchBlogCategoriesThunk());
+      }
+    };
+
+    if (typeof window !== 'undefined') {
+      // Popstate event (back/forward button)
+      window.addEventListener('popstate', handleRouteChange);
+      
+      return () => {
+        window.removeEventListener('popstate', handleRouteChange);
+      };
+    }
+  }, [dispatch, error]);
+
+  // Sayfa focus olduğunda verileri yenile (sadece hata durumunda)
   useEffect(() => {
     const handleFocus = () => {
-      if (posts.length === 0) {
+      if (error && posts.length === 0 && !loading) {
+        dispatch(fetchBlogPostsThunk({ page: 1, limit: 9 }));
+      }
+    };
+
+    const handleVisibilityChange = () => {
+      if (document.visibilityState === 'visible' && posts.length === 0 && !loading && error) {
         dispatch(fetchBlogPostsThunk({ page: 1, limit: 9 }));
       }
     };
 
     if (typeof window !== 'undefined') {
       window.addEventListener('focus', handleFocus);
-      return () => window.removeEventListener('focus', handleFocus);
+      document.addEventListener('visibilitychange', handleVisibilityChange);
+      
+      return () => {
+        window.removeEventListener('focus', handleFocus);
+        document.removeEventListener('visibilitychange', handleVisibilityChange);
+      };
     }
-  }, [posts.length, dispatch]);
+  }, [error, posts.length, loading, dispatch]);
+
+  // Sayfa cache detection - sadece gerçek cache'den dönüşlerde çalışsın
+  useEffect(() => {
+    const handlePageShow = (event: PageTransitionEvent) => {
+      // Sayfa geri geldiğinde (back/forward cache'den) ve veri yoksa
+      if (event.persisted && posts.length === 0) {
+        dispatch(forceRefresh());
+        dispatch(fetchBlogPostsThunk({ page: 1, limit: 9 }));
+        dispatch(fetchBlogCategoriesThunk());
+      }
+    };
+
+    if (typeof window !== 'undefined') {
+      window.addEventListener('pageshow', handlePageShow);
+      
+      return () => {
+        window.removeEventListener('pageshow', handlePageShow);
+      };
+    }
+  }, [dispatch]);
 
   const handleCategoryChange = (category: string) => {
     dispatch(setSelectedCategory(category));
@@ -93,22 +159,11 @@ export default function BlogPage() {
     }));
   };
 
-  const handleSearchChange = (term: string) => {
-    dispatch(setSearchTerm(term));
-    dispatch(fetchBlogPostsThunk({ 
-      page: 1, 
-      limit: 9, 
-      search: term,
-      category: selectedCategory === "Tümü" ? "" : selectedCategory
-    }));
-  };
-
   const handlePageChange = (page: number) => {
     dispatch(fetchBlogPostsThunk({ 
       page, 
       limit: 9, 
-      category: selectedCategory === "Tümü" ? "" : selectedCategory,
-      search: searchTerm
+      category: selectedCategory === "Tümü" ? "" : selectedCategory
     }));
   };
 
@@ -166,8 +221,6 @@ export default function BlogPage() {
               viewport={{ once: true }}
               className="space-y-6"
             >
-              {/* Search Bar */}
-             
 
               {/* Category Filter */}
               <motion.div variants={slideUp} className="flex flex-wrap justify-center gap-2">
@@ -192,26 +245,80 @@ export default function BlogPage() {
         {/* Blog Posts Grid */}
         <Section className="py-12">
           <div className="mx-auto max-w-6xl px-4 sm:px-6 lg:px-8">
-            {loading && posts.length === 0 ? (
+            {loading && posts.length === 0 && !error ? (
               <div className="text-center py-12">
                 <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600 mx-auto mb-4"></div>
-                <p className="text-slate-600 dark:text-slate-400">Yükleniyor...</p>
+                <p className="text-slate-600 dark:text-slate-400">Blog yazıları yükleniyor...</p>
+                <p className="text-sm text-slate-500 dark:text-slate-500 mt-2">Lütfen bekleyin</p>
               </div>
             ) : error ? (
               <div className="text-center py-12">
-                <p className="text-red-600 dark:text-red-400 mb-4">{error}</p>
-                <Button onClick={() => dispatch(fetchBlogPostsThunk({ page: 1, limit: 9 }))}>
-                  Tekrar Dene
-                </Button>
+                <div className="mb-6">
+                  <svg className="w-16 h-16 mx-auto mb-4 text-red-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="1" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-2.5L13.732 4c-.77-.833-1.732-.833-2.5 0L4.268 16.5c-.77.833.192 2.5 1.732 2.5z" />
+                  </svg>
+                  <h3 className="text-lg font-semibold text-slate-900 dark:text-white mb-2">Veri Yüklenemedi</h3>
+                  <p className="text-red-600 dark:text-red-400 mb-4 max-w-md mx-auto">{error}</p>
+                </div>
+                <div className="space-y-3">
+                  <div className="flex gap-3 justify-center">
+                    <Button 
+                      onClick={() => {
+                        dispatch(forceRefresh());
+                        dispatch(fetchBlogPostsThunk({ page: 1, limit: 9 }));
+                        dispatch(fetchBlogCategoriesThunk());
+                      }}
+                      className="bg-blue-600 hover:bg-blue-700 text-white px-6 py-2 rounded-lg"
+                      disabled={loading}
+                    >
+                      {loading ? "Yükleniyor..." : "Tekrar Dene"}
+                    </Button>
+                    <Button 
+                      onClick={() => {
+                        dispatch(resetBlogState());
+                        setTimeout(() => {
+                          dispatch(fetchBlogPostsThunk({ page: 1, limit: 9 }));
+                          dispatch(fetchBlogCategoriesThunk());
+                        }, 100);
+                      }}
+                      className="bg-green-600 hover:bg-green-700 text-white px-6 py-2 rounded-lg"
+                      disabled={loading}
+                    >
+                      {loading ? "Yükleniyor..." : "Yenile"}
+                    </Button>
+                  </div>
+                  <div className="space-y-2">
+                    <p className="text-sm text-slate-500 dark:text-slate-400">
+                      Sorun devam ederse sayfayı yenileyin
+                    </p>
+                    <button
+                      onClick={() => window.location.reload()}
+                      className="text-sm text-blue-600 dark:text-blue-400 hover:underline"
+                    >
+                      Sayfayı Yenile
+                    </button>
+                  </div>
+                </div>
               </div>
             ) : (
               <motion.div
                 variants={staggerContainer}
                 initial="hidden"
-                whileInView="show"
-                viewport={{ once: true }}
-                className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8"
+                animate="show"
+                className="relative"
               >
+                {/* Loading overlay for subsequent requests */}
+                {loading && posts.length > 0 && (
+                  <div className="absolute inset-0 bg-white/80 dark:bg-slate-900/80 backdrop-blur-sm z-10 flex items-center justify-center rounded-lg">
+                    <div className="flex items-center gap-3 bg-white dark:bg-slate-800 px-4 py-2 rounded-lg shadow-lg">
+                      <div className="animate-spin rounded-full h-5 w-5 border-b-2 border-blue-600"></div>
+                      <span className="text-sm text-slate-600 dark:text-slate-300">Güncelleniyor...</span>
+                    </div>
+                  </div>
+                )}
+                
+                
+                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
                 {posts.map((post, index) => (
                   <motion.article
                     key={post._id}
@@ -240,7 +347,12 @@ export default function BlogPage() {
                         src={post.featuredImage}
                         alt={post.title}
                         fill
+                        sizes="(max-width: 768px) 100vw, (max-width: 1200px) 50vw, 33vw"
                         className="object-cover group-hover:scale-105 transition-transform duration-700"
+                        priority={index < 3} // İlk 3 resim için priority
+                        quality={85}
+                        placeholder="blur"
+                        blurDataURL="data:image/jpeg;base64,/9j/4AAQSkZJRgABAQAAAQABAAD/2wBDAAYEBQYFBAYGBQYHBwYIChAKCgkJChQODwwQFxQYGBcUFhYaHSUfGhsjHBYWICwgIyYnKSopGR8tMC0oMCUoKSj/2wBDAQcHBwoIChMKChMoGhYaKCgoKCgoKCgoKCgoKCgoKCgoKCgoKCgoKCgoKCgoKCgoKCgoKCgoKCgoKCgoKCgoKCj/wAARCAABAAEDASIAAhEBAxEB/8QAFQABAQAAAAAAAAAAAAAAAAAAAAv/xAAUEAEAAAAAAAAAAAAAAAAAAAAA/8QAFQEBAQAAAAAAAAAAAAAAAAAAAAX/xAAUEQEAAAAAAAAAAAAAAAAAAAAA/9oADAMBAAIRAxEAPwCdABmX/9k="
                       />
                       <div className="absolute inset-0 bg-gradient-to-t from-black/60 via-transparent to-transparent" />
                       
@@ -251,10 +363,21 @@ export default function BlogPage() {
                         </span>
                       </div>
                       
-                      {/* Read Time Badge */}
+                      {/* Time Ago Badge */}
                       <div className="absolute top-4 right-4">
                         <span className="px-2.5 py-1 rounded-full bg-black/20 backdrop-blur text-xs font-medium text-white">
-                          {post.readTime} dk
+                          {(() => {
+                            const now = new Date();
+                            const publishedDate = new Date(post.publishedAt);
+                            const diffTime = Math.abs(now.getTime() - publishedDate.getTime());
+                            const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
+                            
+                            if (diffDays === 1) return '1 gün önce';
+                            if (diffDays < 7) return `${diffDays} gün önce`;
+                            if (diffDays < 30) return `${Math.ceil(diffDays / 7)} hafta önce`;
+                            if (diffDays < 365) return `${Math.ceil(diffDays / 30)} ay önce`;
+                            return `${Math.ceil(diffDays / 365)} yıl önce`;
+                          })()}
                         </span>
                       </div>
                     </div>
@@ -266,7 +389,11 @@ export default function BlogPage() {
                         <div className="flex items-center gap-3">
                           <div className="flex items-center gap-1">
                             <FaCalendarAlt className="w-3 h-3" />
-                            <span>{new Date(post.publishedAt).toLocaleDateString('tr-TR')}</span>
+                            <span>{new Date(post.publishedAt).toLocaleDateString('tr-TR', {
+                              year: 'numeric',
+                              month: 'long',
+                              day: 'numeric'
+                            })}</span>
                           </div>
                           <div className="w-1 h-1 rounded-full bg-slate-300 dark:bg-slate-600" />
                           <div className="flex items-center gap-1">
@@ -338,6 +465,7 @@ export default function BlogPage() {
                     </div>
                   </motion.div>
                 )}
+                </div>
               </motion.div>
             )}
           </div>

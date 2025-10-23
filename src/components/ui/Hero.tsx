@@ -178,13 +178,7 @@ export function Hero() {
                   whileHover={{ scale: 1.05 }}
                   whileTap={{ scale: 0.95 }}
                 >
-                  <Button
-                    type="button"
-                    size="lg"
-                    className="px-6 sm:px-8 py-3 bg-transparent text-foreground border-2 border-blue-600 hover:bg-blue-600 hover:text-white rounded-lg font-medium w-full sm:w-auto transition-all duration-200"
-                  >
-                    Demo İzle
-                  </Button>
+                 
                 </motion.div>
               </motion.div>
             </motion.div>

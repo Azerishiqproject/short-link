@@ -586,32 +586,44 @@ export default function LinkManager() {
                   {/* Recent Clicks with Earnings */}
                   {analytics.recentClicks && analytics.recentClicks.length > 0 && (
                     <div>
-                      <h3 className="text-base sm:text-lg font-semibold text-slate-900 dark:text-white mb-3 sm:mb-4">Son Tıklamalar ve Kazançlar</h3>
+                      <h3 className="text-sm sm:text-base lg:text-lg font-semibold text-slate-900 dark:text-white mb-2 sm:mb-3 lg:mb-4">Son Tıklamalar ve Kazançlar</h3>
                       <div className="bg-slate-50 dark:bg-slate-700/50 rounded-lg overflow-hidden">
                         <div className="overflow-x-auto">
-                          <table className="w-full">
+                          <table className="w-full min-w-[280px]">
                             <thead className="bg-slate-100 dark:bg-slate-600">
                               <tr>
-                                <th className="px-2 sm:px-4 py-2 sm:py-3 text-left text-xs font-medium text-slate-600 dark:text-slate-300 uppercase tracking-wider">Tarih</th>
-                                <th className="px-2 sm:px-4 py-2 sm:py-3 text-left text-xs font-medium text-slate-600 dark:text-slate-300 uppercase tracking-wider">Ülke</th>
-                                <th className="px-2 sm:px-4 py-2 sm:py-3 text-left text-xs font-medium text-slate-600 dark:text-slate-300 uppercase tracking-wider">IP</th>
-                                <th className="px-2 sm:px-4 py-2 sm:py-3 text-left text-xs font-medium text-slate-600 dark:text-slate-300 uppercase tracking-wider">Kazanç</th>
+                                <th className="px-1.5 sm:px-2 lg:px-4 py-1.5 sm:py-2 lg:py-3 text-left text-[10px] sm:text-xs font-medium text-slate-600 dark:text-slate-300 uppercase tracking-wider">Tarih</th>
+                                <th className="px-1.5 sm:px-2 lg:px-4 py-1.5 sm:py-2 lg:py-3 text-left text-[10px] sm:text-xs font-medium text-slate-600 dark:text-slate-300 uppercase tracking-wider">Ülke</th>
+                                <th className="px-1.5 sm:px-2 lg:px-4 py-1.5 sm:py-2 lg:py-3 text-left text-[10px] sm:text-xs font-medium text-slate-600 dark:text-slate-300 uppercase tracking-wider">Kazanç</th>
                               </tr>
                             </thead>
                             <tbody className="divide-y divide-slate-200 dark:divide-slate-600">
                               {analytics.recentClicks.map((click, index) => (
                                 <tr key={index} className="hover:bg-slate-100 dark:hover:bg-slate-600/50">
-                                  <td className="px-2 sm:px-4 py-2 sm:py-3 text-xs sm:text-sm text-slate-900 dark:text-white">
-                                    {new Date(click.clickedAt).toLocaleString('tr-TR')}
+                                  <td className="px-1.5 sm:px-2 lg:px-4 py-1.5 sm:py-2 lg:py-3 text-[10px] sm:text-xs text-slate-900 dark:text-white">
+                                    <div className="whitespace-nowrap">
+                                      {new Date(click.clickedAt).toLocaleDateString('tr-TR', {
+                                        day: '2-digit',
+                                        month: '2-digit',
+                                        year: '2-digit'
+                                      })}
+                                    </div>
+                                    <div className="text-[9px] sm:text-[10px] text-slate-500 dark:text-slate-400">
+                                      {new Date(click.clickedAt).toLocaleTimeString('tr-TR', {
+                                        hour: '2-digit',
+                                        minute: '2-digit'
+                                      })}
+                                    </div>
                                   </td>
-                                  <td className="px-2 sm:px-4 py-2 sm:py-3 text-xs sm:text-sm text-slate-900 dark:text-white">
-                                    {click.country}
+                                  <td className="px-1.5 sm:px-2 lg:px-4 py-1.5 sm:py-2 lg:py-3 text-[10px] sm:text-xs text-slate-900 dark:text-white">
+                                    <div className="whitespace-nowrap truncate max-w-[60px] sm:max-w-none">
+                                      {click.country}
+                                    </div>
                                   </td>
-                                  <td className="px-2 sm:px-4 py-2 sm:py-3 text-xs sm:text-sm text-slate-600 dark:text-slate-400 font-mono">
-                                    {click.ip}
-                                  </td>
-                                  <td className="px-2 sm:px-4 py-2 sm:py-3 text-xs sm:text-sm font-semibold text-green-600 dark:text-green-400">
-                                    {click.earnings.toFixed(4)} ₺
+                                  <td className="px-1.5 sm:px-2 lg:px-4 py-1.5 sm:py-2 lg:py-3 text-[10px] sm:text-xs font-semibold text-green-600 dark:text-green-400">
+                                    <div className="whitespace-nowrap">
+                                      {click.earnings.toFixed(4)} ₺
+                                    </div>
                                   </td>
                                 </tr>
                               ))}

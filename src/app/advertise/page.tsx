@@ -637,7 +637,6 @@ export default function ReklamVer() {
           <p className="mt-3 text-muted">Hemen başlayın ve markanızı milyonlarca kullanıcıya ulaştırın.</p>
           <div className="mt-6 flex items-center justify-center gap-3">
             <Button size="lg" onClick={() => alert("Çok yakında!")}>Kampanya Oluştur</Button>
-            <Button variant="secondary" size="lg" onClick={() => alert("Çok yakında!")}>Demo İzle</Button>
           </div>
         </div>
       </Section>

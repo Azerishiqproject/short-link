@@ -6,7 +6,7 @@ import { updateUserThunk } from "@/store/slices/usersSlice";
 import { fetchAllPaymentsThunk } from "@/store/slices/paymentsSlice";
 import { fetchUserLinksThunk } from "@/store/slices/linksSlice";
 import { Button } from "@/components/ui/Button";
-import { createDeviceBanThunk, createIpBanThunk, createEmailBanThunk } from "@/store/slices/usersSlice";
+import { createDeviceBanThunk, createIpBanThunk, createEmailBanThunk, createComprehensiveBanThunk } from "@/store/slices/usersSlice";
 import Pagination from "@/components/common/Pagination";
 import LinkDetailModal from "./LinkDetailModal";
 
@@ -34,6 +34,7 @@ export default function UserDetailModal({ user, isOpen, onClose }: UserDetailMod
   const [showWithdrawalsModal, setShowWithdrawalsModal] = useState(false);
   const [showLinksModal, setShowLinksModal] = useState(false);
   const [showReferralsModal, setShowReferralsModal] = useState(false);
+  const [showBanModal, setShowBanModal] = useState(false);
 
   useEffect(() => {
     if (user && isOpen) {
@@ -41,11 +42,11 @@ export default function UserDetailModal({ user, isOpen, onClose }: UserDetailMod
         name: user.name || "",
         email: user.email || "",
         role: user.role || "user",
-        balance: user.balance || 0,
         available_balance: user.available_balance || 0,
-        reserved_balance: user.reserved_balance || 0,
         earned_balance: user.earned_balance || 0,
-        reserved_earned_balance: user.reserved_earned_balance || 0
+        reserved_earned_balance: user.reserved_earned_balance || 0,
+        referral_earned: user.referral_earned || 0,
+        reserved_referral_earned: user.reserved_referral_earned || 0
       });
       setIsEditing(false);
       
@@ -82,11 +83,11 @@ export default function UserDetailModal({ user, isOpen, onClose }: UserDetailMod
       name: user?.name || "",
       email: user?.email || "",
       role: user?.role || "user",
-      balance: user?.balance || 0,
       available_balance: user?.available_balance || 0,
-      reserved_balance: user?.reserved_balance || 0,
       earned_balance: user?.earned_balance || 0,
-      reserved_earned_balance: user?.reserved_earned_balance || 0
+      reserved_earned_balance: user?.reserved_earned_balance || 0,
+      referral_earned: user?.referral_earned || 0,
+      reserved_referral_earned: user?.reserved_referral_earned || 0
     });
   };
 
@@ -119,39 +120,60 @@ export default function UserDetailModal({ user, isOpen, onClose }: UserDetailMod
     try {
       const reason = banReason || `Kullanıcı banlandı: ${user.email}`;
       
-      // Ban by email
-      await dispatch<any>(createEmailBanThunk({ 
-        token, 
-        email: user.email, 
-        reason, 
-        expiresAt: banExpiresAt || undefined 
+      // Debug: Kullanıcı verilerini kontrol et
+      console.log("Comprehensive ban işlemi - Kullanıcı verileri:", {
+        email: user.email,
+        registrationIp: user.registrationIp,
+        lastLoginIp: user.lastLoginIp,
+        registrationDeviceId: user.registrationDeviceId,
+        deviceIds: user.deviceIds
+      });
+      
+      // IP'leri topla
+      const ips: string[] = [];
+      if (user.registrationIp) ips.push(user.registrationIp);
+      if (user.lastLoginIp && user.lastLoginIp !== user.registrationIp) {
+        ips.push(user.lastLoginIp);
+      }
+      
+      // Cihaz kimliklerini topla
+      const deviceIds: string[] = [];
+      if (user.registrationDeviceId) deviceIds.push(user.registrationDeviceId);
+      if (user.deviceIds && user.deviceIds.length > 0) {
+        deviceIds.push(...user.deviceIds);
+      }
+      
+      console.log("Toplanan IP'ler:", ips);
+      console.log("Toplanan cihaz kimlikleri:", deviceIds);
+      
+      // Comprehensive ban oluştur
+      const banResult = await dispatch<any>(createComprehensiveBanThunk({
+        token,
+        email: user.email,
+        ips: ips.length > 0 ? ips : undefined,
+        deviceIds: deviceIds.length > 0 ? deviceIds : undefined,
+        reason,
+        expiresAt: banExpiresAt || undefined,
+        userId: user._id || user.id
       }));
       
-      // Ban by IP (registration or last login IP)
-      const ipToBan = user.registrationIp || user.lastLoginIp;
-      if (ipToBan) {
-        await dispatch<any>(createIpBanThunk({ 
-          token, 
-          ip: ipToBan, 
-          reason, 
-          expiresAt: banExpiresAt || undefined 
-        }));
-      }
+      console.log("Comprehensive ban sonucu:", banResult);
       
-      // Ban by device ID
-      const deviceToBan = user.registrationDeviceId;
-      if (deviceToBan) {
-        await dispatch<any>(createDeviceBanThunk({ 
-          token, 
-          deviceId: deviceToBan, 
-          reason, 
-          expiresAt: banExpiresAt || undefined 
-        }));
-      }
+      // Başarı mesajı
+      const banDetails = [];
+      banDetails.push(`Email: ${user.email}`);
+      if (ips.length > 0) banDetails.push(`IP'ler: ${ips.join(', ')}`);
+      if (deviceIds.length > 0) banDetails.push(`Cihaz Kimlikleri: ${deviceIds.length} adet`);
       
-      if (typeof window !== 'undefined') alert("Kullanıcı banlandı (Email, IP ve cihaz)");
+      if (typeof window !== 'undefined') {
+        alert(`Kullanıcı başarıyla banlandı!\n\nBanlanan öğeler:\n${banDetails.join('\n')}`);
+        setShowBanModal(false);
+        setBanReason("");
+        setBanExpiresAt("");
+      }
     } catch (error) {
-      if (typeof window !== 'undefined') alert("Ban işlemi başarısız");
+      console.error("Comprehensive ban işlemi hatası:", error);
+      if (typeof window !== 'undefined') alert("Ban işlemi başarısız: " + (error as Error).message);
     }
   };
 
@@ -185,7 +207,7 @@ export default function UserDetailModal({ user, isOpen, onClose }: UserDetailMod
                 <Button onClick={() => setIsEditing(true)} variant="secondary">
                   Düzenle
                 </Button>
-                <Button onClick={handleBanUser} variant="secondary" className="bg-red-600 hover:bg-red-700 text-white">
+                <Button onClick={() => setShowBanModal(true)} variant="secondary" className="bg-red-600 hover:bg-red-700 text-white">
                   Banla
                 </Button>
               </>
@@ -277,26 +299,9 @@ export default function UserDetailModal({ user, isOpen, onClose }: UserDetailMod
           {/* Bakiye Bilgileri */}
           <div className="space-y-4">
             <h4 className="text-md font-semibold text-slate-900 dark:text-white">Bakiye Bilgileri</h4>
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            <div className="grid grid-cols-1 gap-4">
               <div className="space-y-2">
-                <label className="block text-xs text-slate-600 dark:text-slate-300">Ana Bakiye</label>
-                {isEditing ? (
-                  <input
-                    type="number"
-                    step="0.01"
-                    value={editData.balance}
-                    onChange={(e) => setEditData({...editData, balance: Number(e.target.value)})}
-                    className="w-full h-11 rounded-xl border border-black/10 dark:border-white/10 bg-white dark:bg-slate-800 px-3 text-sm text-slate-900 dark:text-white"
-                  />
-                ) : (
-                  <div className="h-11 rounded-xl border border-black/10 dark:border-white/10 bg-slate-50 dark:bg-slate-800 px-3 flex items-center text-sm text-slate-900 dark:text-white">
-                    ₺{Number(user.balance || 0).toLocaleString()}
-                  </div>
-                )}
-              </div>
-              
-              <div className="space-y-2">
-                <label className="block text-xs text-slate-600 dark:text-slate-300">Kullanılabilir Bakiye</label>
+                <label className="block text-xs text-slate-600 dark:text-slate-300">Toplam Bakiye (Kullanılabilir)</label>
                 {isEditing ? (
                   <input
                     type="number"
@@ -311,26 +316,12 @@ export default function UserDetailModal({ user, isOpen, onClose }: UserDetailMod
                   </div>
                 )}
               </div>
+            </div>
+            
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
               
               <div className="space-y-2">
-                <label className="block text-xs text-slate-600 dark:text-slate-300">Rezerve Bakiye</label>
-                {isEditing ? (
-                  <input
-                    type="number"
-                    step="0.01"
-                    value={editData.reserved_balance}
-                    onChange={(e) => setEditData({...editData, reserved_balance: Number(e.target.value)})}
-                    className="w-full h-11 rounded-xl border border-black/10 dark:border-white/10 bg-white dark:bg-slate-800 px-3 text-sm text-slate-900 dark:text-white"
-                  />
-                ) : (
-                  <div className="h-11 rounded-xl border border-black/10 dark:border-white/10 bg-slate-50 dark:bg-slate-800 px-3 flex items-center text-sm text-slate-900 dark:text-white">
-                    ₺{Number(user.reserved_balance || 0).toLocaleString()}
-                  </div>
-                )}
-              </div>
-              
-              <div className="space-y-2">
-                <label className="block text-xs text-slate-600 dark:text-slate-300">Kazanılan Bakiye</label>
+                <label className="block text-xs text-slate-600 dark:text-slate-300">Link Kazancı (Kısaltmalardan)</label>
                 {isEditing ? (
                   <input
                     type="number"
@@ -347,7 +338,7 @@ export default function UserDetailModal({ user, isOpen, onClose }: UserDetailMod
               </div>
               
               <div className="space-y-2">
-                <label className="block text-xs text-slate-600 dark:text-slate-300">Rezerve Kazanılan Bakiye</label>
+                <label className="block text-xs text-slate-600 dark:text-slate-300">Rezerve Link Kazancı (Reklam Tıklamaları)</label>
                 {isEditing ? (
                   <input
                     type="number"
@@ -359,6 +350,40 @@ export default function UserDetailModal({ user, isOpen, onClose }: UserDetailMod
                 ) : (
                   <div className="h-11 rounded-xl border border-black/10 dark:border-white/10 bg-slate-50 dark:bg-slate-800 px-3 flex items-center text-sm text-slate-900 dark:text-white">
                     ₺{Number(user.reserved_earned_balance || 0).toLocaleString()}
+                  </div>
+                )}
+              </div>
+              
+              <div className="space-y-2">
+                <label className="block text-xs text-slate-600 dark:text-slate-300">Referans Kazancı</label>
+                {isEditing ? (
+                  <input
+                    type="number"
+                    step="0.01"
+                    value={editData.referral_earned}
+                    onChange={(e) => setEditData({...editData, referral_earned: Number(e.target.value)})}
+                    className="w-full h-11 rounded-xl border border-black/10 dark:border-white/10 bg-white dark:bg-slate-800 px-3 text-sm text-slate-900 dark:text-white"
+                  />
+                ) : (
+                  <div className="h-11 rounded-xl border border-black/10 dark:border-white/10 bg-slate-50 dark:bg-slate-800 px-3 flex items-center text-sm text-slate-900 dark:text-white">
+                    ₺{Number(user.referral_earned || 0).toLocaleString()}
+                  </div>
+                )}
+              </div>
+              
+              <div className="space-y-2">
+                <label className="block text-xs text-slate-600 dark:text-slate-300">Rezerve Referans Kazancı</label>
+                {isEditing ? (
+                  <input
+                    type="number"
+                    step="0.01"
+                    value={editData.reserved_referral_earned}
+                    onChange={(e) => setEditData({...editData, reserved_referral_earned: Number(e.target.value)})}
+                    className="w-full h-11 rounded-xl border border-black/10 dark:border-white/10 bg-white dark:bg-slate-800 px-3 text-sm text-slate-900 dark:text-white"
+                  />
+                ) : (
+                  <div className="h-11 rounded-xl border border-black/10 dark:border-white/10 bg-slate-50 dark:bg-slate-800 px-3 flex items-center text-sm text-slate-900 dark:text-white">
+                    ₺{Number(user.reserved_referral_earned || 0).toLocaleString()}
                   </div>
                 )}
               </div>
@@ -411,25 +436,25 @@ export default function UserDetailModal({ user, isOpen, onClose }: UserDetailMod
               <div className="rounded-xl border border-black/10 dark:border-white/10 bg-slate-50/60 dark:bg-slate-800/40 p-4">
                 <div className="text-xs text-slate-600 dark:text-slate-300">Toplam Bakiye</div>
                 <div className="text-lg font-semibold text-slate-900 dark:text-white">
-                  ₺{Number(user.balance || 0).toLocaleString()}
+                  ₺{Number(user.available_balance || 0).toLocaleString()}
+                </div>
+              </div>
+              <div className="rounded-xl border border-black/10 dark:border-white/10 bg-slate-50/60 dark:bg-slate-800/40 p-4">
+                <div className="text-xs text-slate-600 dark:text-slate-300">Link Kazancı</div>
+                <div className="text-lg font-semibold text-blue-600 dark:text-blue-400">
+                  ₺{Number(user.earned_balance || 0).toLocaleString()}
+                </div>
+              </div>
+              <div className="rounded-xl border border-black/10 dark:border-white/10 bg-slate-50/60 dark:bg-slate-800/40 p-4">
+                <div className="text-xs text-slate-600 dark:text-slate-300">Referans Kazancı</div>
+                <div className="text-lg font-semibold text-green-600 dark:text-green-400">
+                  ₺{Number(user.referral_earned || 0).toLocaleString()}
                 </div>
               </div>
               <div className="rounded-xl border border-black/10 dark:border-white/10 bg-slate-50/60 dark:bg-slate-800/40 p-4">
                 <div className="text-xs text-slate-600 dark:text-slate-300">Toplam Çekim</div>
                 <div className="text-lg font-semibold text-orange-600 dark:text-orange-400">
                   ₺{withdrawalPayments.reduce((sum: number, p: any) => sum + Number(p.amount || 0), 0).toLocaleString()}
-                </div>
-              </div>
-              <div className="rounded-xl border border-black/10 dark:border-white/10 bg-slate-50/60 dark:bg-slate-800/40 p-4">
-                <div className="text-xs text-slate-600 dark:text-slate-300">Toplam Link</div>
-                <div className="text-lg font-semibold text-blue-600 dark:text-blue-400">
-                  {userLinksPagination?.total || 0}
-                </div>
-              </div>
-              <div className="rounded-xl border border-black/10 dark:border-white/10 bg-slate-50/60 dark:bg-slate-800/40 p-4">
-                <div className="text-xs text-slate-600 dark:text-slate-300">Link Kazancı</div>
-                <div className="text-lg font-semibold text-green-600 dark:text-green-400">
-                  ₺{links?.reduce((sum: number, l: any) => sum + Number(l.earnings || 0), 0).toLocaleString() || 0}
                 </div>
               </div>
             </div>
@@ -621,6 +646,116 @@ export default function UserDetailModal({ user, isOpen, onClose }: UserDetailMod
               </div>
               <div className="text-center py-4 text-slate-500 dark:text-slate-400">
                 Referans detayları ve istatistikleri burada gösterilecek
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Ban Modal */}
+      {showBanModal && (
+        <div className="fixed inset-0 flex items-center justify-center p-4 z-50 bg-black/50">
+          <div className="bg-white dark:bg-slate-900 rounded-2xl w-full max-w-md shadow-2xl border border-slate-200 dark:border-slate-700">
+            <div className="flex items-center justify-between p-6 border-b border-slate-200 dark:border-slate-800">
+              <h3 className="text-lg font-semibold text-slate-900 dark:text-white">
+                Kullanıcıyı Banla
+              </h3>
+              <button onClick={() => setShowBanModal(false)} className="text-slate-400 hover:text-slate-600 dark:hover:text-slate-300">
+                <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12"/>
+                </svg>
+              </button>
+            </div>
+            <div className="p-6 space-y-4">
+              <div className="bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 rounded-lg p-4">
+                <div className="flex items-start gap-3">
+                  <div className="text-red-600 dark:text-red-400 text-lg">⚠️</div>
+                  <div>
+                    <h4 className="text-sm font-semibold text-red-800 dark:text-red-200 mb-2">
+                      Dikkat: Bu işlem geri alınamaz!
+                    </h4>
+                    <p className="text-xs text-red-700 dark:text-red-300">
+                      Kullanıcı banlandığında aşağıdaki öğeler de banlanacak:
+                    </p>
+                    <ul className="text-xs text-red-700 dark:text-red-300 mt-2 space-y-1">
+                      <li>• Email: {user.email}</li>
+                      {user.registrationIp ? (
+                        <li>• Kayıt IP: {user.registrationIp}</li>
+                      ) : (
+                        <li>• Kayıt IP: <span className="text-yellow-600">Bulunamadı</span></li>
+                      )}
+                      {user.lastLoginIp ? (
+                        user.lastLoginIp !== user.registrationIp ? (
+                          <li>• Son Giriş IP: {user.lastLoginIp}</li>
+                        ) : (
+                          <li>• Son Giriş IP: {user.lastLoginIp} <span className="text-blue-600">(Kayıt IP ile aynı)</span></li>
+                        )
+                      ) : (
+                        <li>• Son Giriş IP: <span className="text-yellow-600">Bulunamadı</span></li>
+                      )}
+                      {user.registrationDeviceId ? (
+                        <li>• Cihaz Kimliği: {user.registrationDeviceId}</li>
+                      ) : (
+                        <li>• Cihaz Kimliği: <span className="text-yellow-600">Bulunamadı</span></li>
+                      )}
+                      {user.deviceIds && user.deviceIds.length > 0 ? (
+                        <li>• {user.deviceIds.length} Ek Cihaz Kimliği</li>
+                      ) : (
+                        <li>• Ek Cihaz Kimliği: <span className="text-yellow-600">Bulunamadı</span></li>
+                      )}
+                    </ul>
+                  </div>
+                </div>
+              </div>
+
+              <div className="space-y-4">
+                <div>
+                  <label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-2">
+                    Ban Sebebi <span className="text-red-500">*</span>
+                  </label>
+                  <textarea
+                    value={banReason}
+                    onChange={(e) => setBanReason(e.target.value)}
+                    placeholder="Ban sebebini girin..."
+                    className="w-full h-20 rounded-lg border border-slate-300 dark:border-slate-600 bg-white dark:bg-slate-800 text-slate-900 dark:text-white px-3 py-2 text-sm resize-none focus:outline-none focus:ring-2 focus:ring-red-500"
+                    maxLength={500}
+                  />
+                  <p className="text-xs text-slate-500 dark:text-slate-400 mt-1">
+                    {banReason.length}/500 karakter
+                  </p>
+                </div>
+
+                <div>
+                  <label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-2">
+                    Ban Bitiş Tarihi (Opsiyonel)
+                  </label>
+                  <input
+                    type="datetime-local"
+                    value={banExpiresAt}
+                    onChange={(e) => setBanExpiresAt(e.target.value)}
+                    className="w-full h-11 rounded-lg border border-slate-300 dark:border-slate-600 bg-white dark:bg-slate-800 text-slate-900 dark:text-white px-3 text-sm focus:outline-none focus:ring-2 focus:ring-red-500"
+                  />
+                  <p className="text-xs text-slate-500 dark:text-slate-400 mt-1">
+                    Boş bırakırsanız kalıcı ban olur
+                  </p>
+                </div>
+              </div>
+
+              <div className="flex gap-3 pt-4">
+                <Button 
+                  onClick={() => setShowBanModal(false)} 
+                  variant="secondary" 
+                  className="flex-1"
+                >
+                  İptal
+                </Button>
+                <Button 
+                  onClick={handleBanUser} 
+                  className="flex-1 bg-red-600 hover:bg-red-700 text-white"
+                  disabled={!banReason.trim()}
+                >
+                  Kullanıcıyı Banla
+                </Button>
               </div>
             </div>
           </div>

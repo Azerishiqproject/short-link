@@ -111,11 +111,23 @@ export const refreshAccessTokenThunk = createAsyncThunk(
 
 export const fetchMeThunk = createAsyncThunk(
   "auth/me",
-  async (_: void, { getState }) => {
+  async (_: void, { getState, dispatch }) => {
     const state = getState() as any;
     const token = state.auth.token as string | null;
     if (!token) throw new Error("Missing token");
-    const res = await fetch(`${API_URL}/api/auth/me`, { headers: { Authorization: `Bearer ${token}` } });
+    
+    let res = await fetch(`${API_URL}/api/auth/me`, { headers: { Authorization: `Bearer ${token}` } });
+    if (res.status === 401) {
+      try {
+        await dispatch<any>(refreshAccessTokenThunk());
+        const newToken = (typeof window !== 'undefined' ? localStorage.getItem("token") : null) || token;
+        res = await fetch(`${API_URL}/api/auth/me`, { headers: { Authorization: `Bearer ${newToken}` } });
+      } catch {}
+      if (res.status === 401) {
+        dispatch(handleUnauthorized());
+        throw new Error("Unauthorized");
+      }
+    }
     if (!res.ok) throw new Error("Failed to fetch profile");
     const data = await res.json();
     return data.user as User;
@@ -124,11 +136,12 @@ export const fetchMeThunk = createAsyncThunk(
 
 export const updateProfileThunk = createAsyncThunk(
   "auth/updateProfile",
-  async (payload: { name?: string; email?: string; iban?: string; fullName?: string; paymentDescription?: string }, { getState }) => {
+  async (payload: { name?: string; email?: string; iban?: string; fullName?: string; paymentDescription?: string }, { getState, dispatch }) => {
     const state = getState() as any;
     const token = state.auth.token as string | null;
     if (!token) throw new Error("Missing token");
-    const res = await fetch(`${API_URL}/api/auth/me`, {
+    
+    let res = await fetch(`${API_URL}/api/auth/me`, {
       method: "PUT",
       headers: {
         "Content-Type": "application/json",
@@ -136,6 +149,24 @@ export const updateProfileThunk = createAsyncThunk(
       },
       body: JSON.stringify(payload),
     });
+    if (res.status === 401) {
+      try {
+        await dispatch<any>(refreshAccessTokenThunk());
+        const newToken = (typeof window !== 'undefined' ? localStorage.getItem("token") : null) || token;
+        res = await fetch(`${API_URL}/api/auth/me`, {
+          method: "PUT",
+          headers: {
+            "Content-Type": "application/json",
+            Authorization: `Bearer ${newToken}`,
+          },
+          body: JSON.stringify(payload),
+        });
+      } catch {}
+      if (res.status === 401) {
+        dispatch(handleUnauthorized());
+        throw new Error("Unauthorized");
+      }
+    }
     if (!res.ok) {
       const data = await res.json().catch(() => ({}));
       throw new Error(data.error || "Profile update failed");

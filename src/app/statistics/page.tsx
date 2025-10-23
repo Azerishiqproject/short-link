@@ -183,7 +183,6 @@ export default function KazancOranlari() {
           <p className="mt-3 text-sm sm:text-base text-muted">Linklerinizi kısaltın ve ülke bazlı kazanç oranlarından faydalanın.</p>
           <div className="mt-6 flex flex-wrap items-center justify-center gap-3 px-2">
             <Button size="lg" className="w-full sm:w-auto">Ücretsiz Başla</Button>
-            <Button variant="secondary" size="lg" className="w-full sm:w-auto">Demo İzle</Button>
           </div>
         </div>
       </Section>

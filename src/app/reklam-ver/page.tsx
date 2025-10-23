@@ -78,9 +78,7 @@ export default function ReklamVer() {
                 <Button size="lg" className="bg-gradient-to-r from-purple-600 to-pink-600 hover:from-purple-700 hover:to-pink-700 text-white px-8 py-4 text-lg">
                   Kampanya Başlat
                 </Button>
-                <Button variant="secondary" size="lg" className="px-8 py-4 text-lg">
-                  Demo İzle
-                </Button>
+               
               </div>
             </div>
             
@@ -272,7 +270,6 @@ export default function ReklamVer() {
           <p className="mt-3 text-muted">Hemen başlayın ve markanızı milyonlarca kullanıcıya ulaştırın.</p>
           <div className="mt-6 flex items-center justify-center gap-3">
             <Button size="lg">Kampanya Oluştur</Button>
-            <Button variant="secondary" size="lg">Demo İzle</Button>
           </div>
         </div>
       </Section>
