@@ -392,7 +392,7 @@ export default function ReklamVer() {
             </button>
 
             {/* Slider */}
-            <div ref={featuresSliderRef} className="-mx-4 px-4 md:mx-0 md:px-0 overflow-x-auto snap-x snap-mandatory flex gap-4 md:gap-6 pb-4">
+            <div ref={featuresSliderRef} className="-mx-4 px-4 md:mx-0 md:px-0 overflow-x-auto no-scrollbar snap-x snap-mandatory flex gap-4 md:gap-6 pb-4">
               {featuresData.map((feature) => {
               const IconComponent = feature.icon;
                 return (

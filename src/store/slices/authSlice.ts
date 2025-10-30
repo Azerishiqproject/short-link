@@ -28,9 +28,11 @@ type AuthState = {
   status: "idle" | "loading" | "succeeded" | "failed";
   error?: string;
   hydrated?: boolean;
+  verificationId?: string | null;
+  pendingEmail?: string | null;
 };
 
-const initialState: AuthState = { user: null, token: null, refreshToken: null, status: "idle", hydrated: false };
+const initialState: AuthState = { user: null, token: null, refreshToken: null, status: "idle", hydrated: false, verificationId: null, pendingEmail: null };
 const API_URL = process.env.API_URL;
 
 // Global refresh lock to prevent concurrent refresh storms
@@ -47,7 +49,33 @@ export const registerThunk = createAsyncThunk(
       body: JSON.stringify(payload),
     });
     if (!res.ok) throw new Error((await res.json()).error || "Register failed");
+    return (await res.json()) as { verificationId: string };
+  }
+);
+
+export const verifyEmailThunk = createAsyncThunk(
+  "auth/verifyEmail",
+  async (payload: { verificationId: string; code: string }) => {
+    const res = await fetch(`${API_URL}/api/auth/verify-email`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(payload),
+    });
+    if (!res.ok) throw new Error((await res.json()).error || "Verify failed");
     return (await res.json()) as { token: string; refreshToken: string; user: User };
+  }
+);
+
+export const resendCodeThunk = createAsyncThunk(
+  "auth/resendCode",
+  async (payload: { verificationId: string }) => {
+    const res = await fetch(`${API_URL}/api/auth/resend-code`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(payload),
+    });
+    if (!res.ok) throw new Error((await res.json()).error || "Resend failed");
+    return (await res.json()) as { ok: true };
   }
 );
 
@@ -244,6 +272,8 @@ const authSlice = createSlice({
       state.refreshToken = null;
       state.status = "idle";
       state.error = undefined;
+      state.verificationId = null;
+      state.pendingEmail = null;
       if (typeof window !== "undefined") {
         const currentTheme = localStorage.getItem("theme");
         try {
@@ -293,25 +323,35 @@ const authSlice = createSlice({
       if (role) document.cookie = `role=${role}; Path=/; SameSite=Lax`;
       state.hydrated = true;
     },
+    clearVerification(state) {
+      state.verificationId = null;
+      state.pendingEmail = null;
+    },
   },
   extraReducers: (builder) => {
     builder
-      .addCase(registerThunk.pending, (s) => { s.status = "loading"; s.error = undefined; })
+      .addCase(registerThunk.pending, (s, a) => { s.status = "loading"; s.error = undefined; s.verificationId = null; })
       .addCase(registerThunk.fulfilled, (s, a) => {
-        s.status = "succeeded"; s.user = a.payload.user; s.token = a.payload.token; s.refreshToken = a.payload.refreshToken;
+        s.status = "succeeded"; s.verificationId = a.payload.verificationId; // wait for verify step
+      })
+      .addCase(registerThunk.rejected, (s, a) => { s.status = "failed"; s.error = a.error.message; })
+      .addCase(verifyEmailThunk.pending, (s) => { s.status = "loading"; s.error = undefined; })
+      .addCase(verifyEmailThunk.fulfilled, (s, a) => {
+        s.status = "succeeded"; s.user = a.payload.user; s.token = a.payload.token; s.refreshToken = a.payload.refreshToken; s.verificationId = null; s.pendingEmail = null;
         if (typeof window !== "undefined") {
-          // Always persist to localStorage as the durable source of truth
           localStorage.setItem("token", a.payload.token);
           localStorage.setItem("user", JSON.stringify(a.payload.user));
           localStorage.setItem("refreshToken", a.payload.refreshToken);
-          // Mirror to sessionStorage for non-remembered sessions if needed later
           sessionStorage.setItem("token", a.payload.token);
           sessionStorage.setItem("refreshToken", a.payload.refreshToken);
           sessionStorage.setItem("user", JSON.stringify(a.payload.user));
           document.cookie = `role=${a.payload.user.role ?? "user"}; Path=/; SameSite=Lax`;
         }
       })
-      .addCase(registerThunk.rejected, (s, a) => { s.status = "failed"; s.error = a.error.message; })
+      .addCase(verifyEmailThunk.rejected, (s, a) => { s.status = "failed"; s.error = a.error.message; })
+      .addCase(resendCodeThunk.pending, (s) => { s.status = "loading"; s.error = undefined; })
+      .addCase(resendCodeThunk.fulfilled, (s) => { s.status = "succeeded"; })
+      .addCase(resendCodeThunk.rejected, (s, a) => { s.status = "failed"; s.error = a.error.message; })
       .addCase(loginThunk.pending, (s) => { s.status = "loading"; s.error = undefined; })
       .addCase(loginThunk.fulfilled, (s, a) => {
         s.status = "succeeded"; s.user = a.payload.user; s.token = a.payload.token; s.refreshToken = a.payload.refreshToken;

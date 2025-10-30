@@ -7,12 +7,12 @@ import { Card } from "@/components/ui/Card";
 import Link from "next/link";
 import { useEffect, useState } from "react";
 import { useAppDispatch, useAppSelector } from "@/store";
-import { registerThunk } from "@/store/slices/authSlice";
+import { registerThunk, verifyEmailThunk, resendCodeThunk } from "@/store/slices/authSlice";
 import { useRouter } from "next/navigation";
 
 export default function Register() {
   const dispatch = useAppDispatch();
-  const { status, error, user } = useAppSelector((s) => s.auth);
+  const { status, error, user, verificationId } = useAppSelector((s) => s.auth);
   const router = useRouter();
   const [formData, setFormData] = useState({
     firstName: "",
@@ -27,6 +27,9 @@ export default function Register() {
   });
 
   const [errors, setErrors] = useState<{[key: string]: string}>({});
+  const [step, setStep] = useState<"form" | "verify">("form");
+  const [code, setCode] = useState("");
+  const [resentNotice, setResentNotice] = useState<string>("");
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
@@ -82,9 +85,10 @@ export default function Register() {
         email: formData.email,
         password: formData.password,
         name: `${formData.firstName} ${formData.lastName}`.trim(),
-        // role: formData.userType, // Backend'de role field'ı reddediliyor
         referralCode: formData.referralCode || undefined,
-      }));
+      })).then((res:any)=>{
+        if (!res.error) setStep("verify");
+      });
     }
   };
 
@@ -148,10 +152,11 @@ export default function Register() {
         </div>
       </Section>
 
-      {/* Register Form */}
+      {/* Register / Verify */}
       <Section className="py-10">
         <div className="mx-auto max-w-md">
           <Card rounded="2xl" padding="lg" className="shadow-soft bg-white/80 dark:bg-slate-800/80 backdrop-blur-xl border border-black/10 dark:border-white/20">
+            {step === "form" ? (
             <form onSubmit={handleSubmit} className="space-y-6">
               {/* Name Fields */}
               <div className="grid grid-cols-2 gap-4">
@@ -470,6 +475,41 @@ export default function Register() {
                 </Button>
               </div>
             </form>
+            ) : (
+              <form onSubmit={(e)=>{e.preventDefault(); if (!verificationId) return; dispatch(verifyEmailThunk({ verificationId, code }));}} className="space-y-6">
+                <div>
+                  <label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-2">E-posta Doğrulama Kodu</label>
+                  <input
+                    type="text"
+                    inputMode="numeric"
+                    pattern="[0-9]*"
+                    maxLength={6}
+                    value={code}
+                    onChange={(e)=> setCode(e.target.value.replace(/[^0-9]/g, '').slice(0,6))}
+                    className="w-full h-12 rounded-xl text-base border px-4 shadow-soft focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all duration-300 bg-white dark:bg-slate-700 text-slate-900 dark:text-white"
+                    placeholder="000000"
+                  />
+                  <p className="mt-2 text-xs text-slate-500 dark:text-slate-400">E-postanıza gönderilen 6 haneli kodu girin.</p>
+                </div>
+                <div className="flex items-center justify-between">
+                  <Button type="submit" size="lg" className="w-full">{status === "loading" ? "Doğrulanıyor..." : "Doğrula ve Devam Et"}</Button>
+                </div>
+                <div className="flex items-center justify-between">
+                  <button type="button" className="text-sm text-blue-600 hover:text-blue-700 dark:text-blue-400 dark:hover:text-blue-300" onClick={async()=>{
+                    if (!verificationId) return;
+                    setResentNotice("");
+                    const res: any = await dispatch(resendCodeThunk({ verificationId }));
+                    if (!res.error) setResentNotice("Kod yeniden gönderildi.");
+                  }}>Kodu yeniden gönder</button>
+                  {resentNotice && <span className="text-xs text-emerald-600 dark:text-emerald-400">{resentNotice}</span>}
+                </div>
+                {error && (
+                  <div className="p-3 bg-red-50 dark:bg-red-950/30 border border-red-200 dark:border-red-800/50 rounded-lg">
+                    <p className="text-red-600 dark:text-red-400 text-sm">{error}</p>
+                  </div>
+                )}
+              </form>
+            )}
           </Card>
 
           {/* Login Link */}

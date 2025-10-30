@@ -26,15 +26,14 @@ export function Navbar() {
     <header className="fixed top-0 inset-x-0 z-50 pointer-events-none py-2 sm:py-3">
       <div className="w-full px-4 sm:px-6 lg:px-8">
         <div className={`pointer-events-auto rounded-3xl px-4 py-3 backdrop-blur-md border flex items-center justify-between transition-all duration-300 ${isScrolled ? "h-12 sm:h-14 bg-white/90 dark:bg-slate-900/90 border-slate-200/50 dark:border-slate-700/50 shadow-lg" : "h-14 sm:h-16 bg-white/80 dark:bg-slate-900/80 border-slate-200/30 dark:border-slate-700/30 shadow-md"}`}>
-          <Link href="/" className="text-sm sm:text-base font-semibold tracking-tight flex items-center gap-2 text-slate-900 dark:text-white group">
-            <div className="relative">
-              <div className="w-6 h-6 sm:w-7 sm:h-7 rounded-full bg-gradient-to-br from-blue-500 to-purple-600 flex items-center justify-center group-hover:scale-110 transition-transform duration-300">
-                <span className="text-white text-xs font-bold">s</span>
-              </div>
-              <div className="absolute inset-0 w-6 h-6 sm:w-7 sm:h-7 rounded-full bg-gradient-to-br from-blue-500 to-purple-600 opacity-20 group-hover:opacity-40 transition-opacity duration-300 animate-pulse"></div>
-            </div>
-            <span className="hidden xs:inline bg-gradient-to-r from-slate-900 to-slate-700 dark:from-white dark:to-slate-200 bg-clip-text text-transparent">short.link</span>
-            <span className="xs:hidden bg-gradient-to-r from-slate-900 to-slate-700 dark:from-white dark:to-slate-200 bg-clip-text text-transparent">s.link</span>
+          <Link href="/" className="group">
+            <Image
+              src={isDark ?  "/AppImage/logo_light.jpeg" : "/AppImage/logo_dark.jpeg"}
+              alt="tr.link logo"
+              width={140}
+              height={50}
+              className="h-10 sm:h-12 w-auto group-hover:scale-105 transition-transform duration-300"
+            />
           </Link>
           
           {/* Desktop Navigation */}

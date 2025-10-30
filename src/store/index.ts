@@ -8,9 +8,11 @@ import paymentsReducer from "./slices/paymentsSlice";
 import supportReducer from "./slices/supportSlice";
 import blogReducer from "./slices/blogSlice";
 import referralReducer from "./slices/referralSlice";
+import contactReducer from "./slices/contactSlice";
+import adminAdsReducer from "./slices/adminAdsSlice";
 
 export const store = configureStore({
-  reducer: { auth: authReducer, links: linksReducer, campaigns: campaignsReducer, users: usersReducer, payments: paymentsReducer, support: supportReducer, blog: blogReducer, referral: referralReducer },
+  reducer: { auth: authReducer, links: linksReducer, campaigns: campaignsReducer, users: usersReducer, payments: paymentsReducer, support: supportReducer, blog: blogReducer, referral: referralReducer, contact: contactReducer, adminAds: adminAdsReducer },
 });
 
 export type RootState = ReturnType<typeof store.getState>;

@@ -6,5 +6,7 @@ export { default as UsersList } from "./UsersList";
 export { default as UserDetailModal } from "./UserDetailModal";
 export { default as LinkDetailModal } from "./LinkDetailModal";
 export { default as AdminSupport } from "./AdminSupport";
+export { default as ContactManager } from "./ContactManager";
+export { default as AdminAdsManager } from "./AdminAdsManager";
 
 

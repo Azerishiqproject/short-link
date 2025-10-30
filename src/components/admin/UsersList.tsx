@@ -6,6 +6,7 @@ import { useEffect, useState } from "react";
 import { fetchAllUsersThunk, fetchBansThunk } from "@/store/slices/usersSlice";
 import { FiSearch } from "react-icons/fi";
 import { Button } from "@/components/ui/Button";
+import Pagination from "@/components/common/Pagination";
 
 interface UsersListProps {}
 
@@ -101,17 +102,26 @@ export default function UsersList({}: UsersListProps) {
       </div>
 
       {!showBans && (
-      <UsersTable 
-        users={users} 
-        loading={status === "loading"} 
-        error={error} 
-        onDetail={() => {}}
-        pagination={pagination}
-        currentPage={currentPage}
-        pageSize={pageSize}
-        onPageChange={handlePageChange}
-        onPageSizeChange={handlePageSizeChange}
-      />)}
+      <>
+        <UsersTable 
+          users={users} 
+          loading={status === "loading"} 
+          error={error} 
+          onDetail={() => {}}
+          pagination={pagination}
+          currentPage={currentPage}
+          pageSize={pageSize}
+          onPageChange={handlePageChange}
+          onPageSizeChange={handlePageSizeChange}
+        />
+        {pagination && (
+          <Pagination
+            currentPage={currentPage}
+            totalPages={pagination.totalPages}
+            onPageChange={handlePageChange}
+          />
+        )}
+      </>)}
       {showBans && (
         <div className="space-y-2">
           <div className="flex items-center justify-between">

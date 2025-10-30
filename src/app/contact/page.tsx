@@ -1,10 +1,12 @@
 "use client";
-import React from "react";
+import React, { useState } from "react";
 import { Section } from "@/components/ui/Section";
 import { Button } from "@/components/ui/Button";
 import { BlurSpot } from "@/components/ui/BlurSpot";
 import { motion, MotionConfig } from "framer-motion";
-import { Mail, Phone, MapPin, Clock } from "lucide-react";
+import { Mail, Phone, MapPin, Clock, CheckCircle, AlertCircle } from "lucide-react";
+import { useAppDispatch, useAppSelector } from "@/store";
+import { submitContactFormThunk } from "@/store/slices/contactSlice";
 
 const slideLeft = {
   hidden: { opacity: 0, x: -100 },
@@ -35,6 +37,30 @@ const cardItem = {
 };
 
 export default function ContactPage() {
+  const dispatch = useAppDispatch();
+  const { status, error } = useAppSelector((s) => s.contact);
+  const [formData, setFormData] = useState({
+    name: "",
+    email: "",
+    subject: "",
+    message: "",
+  });
+
+  const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => {
+    const { name, value } = e.target;
+    setFormData((prev) => ({ ...prev, [name]: value }));
+  };
+
+  const handleSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    
+    const result = await dispatch(submitContactFormThunk(formData));
+    
+    if (submitContactFormThunk.fulfilled.match(result)) {
+      setFormData({ name: "", email: "", subject: "", message: "" });
+    }
+  };
+
   return (
     <MotionConfig reducedMotion="user">
       <motion.div
@@ -85,28 +111,76 @@ export default function ContactPage() {
                 className="relative mx-auto w-full max-w-xl"
               >
                 <div className="absolute -inset-6 sm:-inset-10 bg-gradient-to-tr from-blue-500/25 via-fuchsia-500/20 to-pink-500/25 blur-3xl" />
-                <form className="relative rounded-2xl border border-slate-200/80 dark:border-slate-800/80 overflow-hidden shadow-2xl bg-white/70 dark:bg-slate-900/60 backdrop-blur p-5 sm:p-6 space-y-4 will-change-transform">
+                <form onSubmit={handleSubmit} className="relative rounded-2xl border border-slate-200/80 dark:border-slate-800/80 overflow-hidden shadow-2xl bg-white/70 dark:bg-slate-900/60 backdrop-blur p-5 sm:p-6 space-y-4 will-change-transform">
+                  {status === "succeeded" && (
+                    <div className="rounded-lg p-3 flex items-center gap-2 bg-emerald-500/10 text-emerald-600 dark:text-emerald-400">
+                      <CheckCircle className="w-4 h-4" />
+                      <span className="text-sm">Mesajınız başarıyla gönderildi! En kısa sürede size dönüş yapacağız.</span>
+                    </div>
+                  )}
+                  {error && (
+                    <div className="rounded-lg p-3 flex items-center gap-2 bg-red-500/10 text-red-600 dark:text-red-400">
+                      <AlertCircle className="w-4 h-4" />
+                      <span className="text-sm">{error}</span>
+                    </div>
+                  )}
                   <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                     <div>
                       <label className="text-xs text-muted" htmlFor="name">Ad Soyad</label>
-                      <input id="name" name="name" className="mt-1 w-full rounded-lg border border-slate-200 dark:border-slate-700 bg-white/90 dark:bg-slate-900/60 px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-blue-500/40" placeholder="Adınız" />
+                      <input 
+                        id="name" 
+                        name="name" 
+                        value={formData.name}
+                        onChange={handleChange}
+                        required
+                        className="mt-1 w-full rounded-lg border border-slate-200 dark:border-slate-700 bg-white/90 dark:bg-slate-900/60 px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-blue-500/40" 
+                        placeholder="Adınız" 
+                      />
                     </div>
                     <div>
                       <label className="text-xs text-muted" htmlFor="email">E-posta</label>
-                      <input id="email" name="email" type="email" className="mt-1 w-full rounded-lg border border-slate-200 dark:border-slate-700 bg-white/90 dark:bg-slate-900/60 px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-blue-500/40" placeholder="ornek@mail.com" />
+                      <input 
+                        id="email" 
+                        name="email" 
+                        type="email" 
+                        value={formData.email}
+                        onChange={handleChange}
+                        required
+                        className="mt-1 w-full rounded-lg border border-slate-200 dark:border-slate-700 bg-white/90 dark:bg-slate-900/60 px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-blue-500/40" 
+                        placeholder="ornek@mail.com" 
+                      />
                     </div>
                   </div>
                   <div>
                     <label className="text-xs text-muted" htmlFor="subject">Konu</label>
-                    <input id="subject" name="subject" className="mt-1 w-full rounded-lg border border-slate-200 dark:border-slate-700 bg-white/90 dark:bg-slate-900/60 px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-blue-500/40" placeholder="Kısa açıklama" />
+                    <input 
+                      id="subject" 
+                      name="subject" 
+                      value={formData.subject}
+                      onChange={handleChange}
+                      required
+                      className="mt-1 w-full rounded-lg border border-slate-200 dark:border-slate-700 bg-white/90 dark:bg-slate-900/60 px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-blue-500/40" 
+                      placeholder="Kısa açıklama" 
+                    />
                   </div>
                   <div>
                     <label className="text-xs text-muted" htmlFor="message">Mesaj</label>
-                    <textarea id="message" name="message" rows={5} className="mt-1 w-full rounded-lg border border-slate-200 dark:border-slate-700 bg-white/90 dark:bg-slate-900/60 px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-blue-500/40" placeholder="Mesajınızı yazın..." />
+                    <textarea 
+                      id="message" 
+                      name="message" 
+                      rows={5} 
+                      value={formData.message}
+                      onChange={handleChange}
+                      required
+                      className="mt-1 w-full rounded-lg border border-slate-200 dark:border-slate-700 bg-white/90 dark:bg-slate-900/60 px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-blue-500/40" 
+                      placeholder="Mesajınızı yazın..." 
+                    />
                   </div>
                   <div className="flex flex-wrap items-center justify-between gap-3">
                     <span className="text-[11px] text-muted">Yanıt süresi: 24 saat içinde</span>
-                    <Button type="submit" className="w-full sm:w-auto">Gönder</Button>
+                    <Button type="submit" disabled={status === "loading"} className="w-full sm:w-auto">
+                      {status === "loading" ? "Gönderiliyor..." : "Gönder"}
+                    </Button>
                   </div>
                 </form>
               </motion.div>

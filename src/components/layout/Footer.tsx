@@ -1,7 +1,11 @@
 import React from "react";
 import Link from "next/link";
+import Image from "next/image";
+import { useTheme } from "@/providers/ThemeProvider";
 
 export function Footer() {
+  const { isDark } = useTheme();
+  
   return (
     <footer className="mt-0">
       <div className="w-full px-0">
@@ -9,12 +13,14 @@ export function Footer() {
           <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
             <div className="grid grid-cols-1 sm:grid-cols-4 gap-10">
               <div className="sm:col-span-1">
-                <div className="flex items-center gap-3 group">
-                  <div className="relative">
-                    <span className="inline-block size-6 ring-gradient rounded-full group-hover:scale-110 transition-transform duration-300" />
-                    <span className="absolute inset-0 inline-block size-6 ring-gradient rounded-full animate-pulse opacity-30" />
-                  </div>
-                  <span className="text-xl font-bold tracking-tight bg-gradient-to-r from-black to-black/80 dark:from-white dark:to-white/80 bg-clip-text text-transparent">short.link</span>
+                <div className="group">
+                  <Image
+                    src={isDark ?  "/AppImage/logo_light.jpeg" : "/AppImage/logo_dark.jpeg"}
+                    alt="short.link logo"
+                    width={160}
+                    height={60}
+                    className="h-12 sm:h-14 w-auto group-hover:scale-105 transition-transform duration-300"
+                  />
                 </div>
                 <p className="mt-4 text-foreground/70 text-base leading-relaxed max-w-sm">Kısa link, akıllı reklam ve gelişmiş analitik. Linklerinizi gelire dönüştürün ve dijital varlığınızı güçlendirin.</p>
                 <div className="mt-6 flex items-center gap-4">

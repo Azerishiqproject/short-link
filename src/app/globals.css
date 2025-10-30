@@ -232,3 +232,13 @@ p { color: color-mix(in oklab, var(--foreground) 80%, transparent); }
   background-color: rgb(100 116 139);
 }
 
+/* Hide scrollbar while preserving scroll */
+.no-scrollbar {
+  -ms-overflow-style: none; /* IE and Edge */
+  scrollbar-width: none; /* Firefox */
+}
+
+.no-scrollbar::-webkit-scrollbar {
+  display: none; /* Chrome, Safari */
+}
+

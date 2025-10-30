@@ -54,9 +54,14 @@ export default function LinkManager() {
   };
 
   const createLink = async () => {
-    if (!token) return;
-    dispatch(createLinkThunk({ token, targetUrl } as any));
-    setTargetUrl("");
+    if (!token || !targetUrl) return;
+    try {
+      await dispatch<any>(createLinkThunk({ token, targetUrl } as any));
+      // After creation, refresh the list to show latest
+      await dispatch<any>(fetchLinksThunk(token));
+    } finally {
+      setTargetUrl("");
+    }
   };
 
   const updateLink = async (id: string, updates: { targetUrl?: string; disabled?: boolean }) => {

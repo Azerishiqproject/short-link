@@ -46,7 +46,8 @@ export default function UserDetailModal({ user, isOpen, onClose }: UserDetailMod
         earned_balance: user.earned_balance || 0,
         reserved_earned_balance: user.reserved_earned_balance || 0,
         referral_earned: user.referral_earned || 0,
-        reserved_referral_earned: user.reserved_referral_earned || 0
+        reserved_referral_earned: user.reserved_referral_earned || 0,
+        referralCode: user.referralCode || ""
       });
       setIsEditing(false);
       
@@ -87,7 +88,8 @@ export default function UserDetailModal({ user, isOpen, onClose }: UserDetailMod
       earned_balance: user?.earned_balance || 0,
       reserved_earned_balance: user?.reserved_earned_balance || 0,
       referral_earned: user?.referral_earned || 0,
-      reserved_referral_earned: user?.reserved_referral_earned || 0
+      reserved_referral_earned: user?.reserved_referral_earned || 0,
+      referralCode: user?.referralCode || ""
     });
   };
 
@@ -120,15 +122,7 @@ export default function UserDetailModal({ user, isOpen, onClose }: UserDetailMod
     try {
       const reason = banReason || `Kullanıcı banlandı: ${user.email}`;
       
-      // Debug: Kullanıcı verilerini kontrol et
-      console.log("Comprehensive ban işlemi - Kullanıcı verileri:", {
-        email: user.email,
-        registrationIp: user.registrationIp,
-        lastLoginIp: user.lastLoginIp,
-        registrationDeviceId: user.registrationDeviceId,
-        deviceIds: user.deviceIds
-      });
-      
+     
       // IP'leri topla
       const ips: string[] = [];
       if (user.registrationIp) ips.push(user.registrationIp);
@@ -143,8 +137,7 @@ export default function UserDetailModal({ user, isOpen, onClose }: UserDetailMod
         deviceIds.push(...user.deviceIds);
       }
       
-      console.log("Toplanan IP'ler:", ips);
-      console.log("Toplanan cihaz kimlikleri:", deviceIds);
+   
       
       // Comprehensive ban oluştur
       const banResult = await dispatch<any>(createComprehensiveBanThunk({
@@ -157,7 +150,6 @@ export default function UserDetailModal({ user, isOpen, onClose }: UserDetailMod
         userId: user._id || user.id
       }));
       
-      console.log("Comprehensive ban sonucu:", banResult);
       
       // Başarı mesajı
       const banDetails = [];
@@ -263,6 +255,26 @@ export default function UserDetailModal({ user, isOpen, onClose }: UserDetailMod
               ) : (
                 <div className="h-11 rounded-xl border border-black/10 dark:border-white/10 bg-slate-50 dark:bg-slate-800 px-3 flex items-center text-sm text-slate-900 dark:text-white">
                   {user.email}
+                </div>
+              )}
+            </div>
+
+            <div className="space-y-2">
+              <label className="block text-xs text-slate-600 dark:text-slate-300">Referans Kodu</label>
+              {isEditing ? (
+                <input
+                  type="text"
+                  value={editData.referralCode}
+                  onChange={(e) => {
+                    const v = (e.target.value || "").toUpperCase().replace(/[^A-Z0-9]/g, '').slice(0,6);
+                    setEditData({ ...editData, referralCode: v });
+                  }}
+                  placeholder="ABC123"
+                  className="w-full h-11 rounded-xl border border-black/10 dark:border-white/10 bg-white dark:bg-slate-800 px-3 text-sm text-slate-900 dark:text-white font-mono"
+                />
+              ) : (
+                <div className="h-11 rounded-xl border border-black/10 dark:border-white/10 bg-slate-50 dark:bg-slate-800 px-3 flex items-center text-sm text-slate-900 dark:text-white font-mono">
+                  {user.referralCode || "-"}
                 </div>
               )}
             </div>

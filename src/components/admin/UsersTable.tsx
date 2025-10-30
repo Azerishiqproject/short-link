@@ -1,6 +1,5 @@
 "use client";
 
-import Pagination from "../common/Pagination";
 import UserDetailModal from "./UserDetailModal";
 import { useState } from "react";
 
@@ -119,14 +118,7 @@ export default function UsersTable({
         </table>
       </div>
 
-      {/* Pagination Controls */}
-      {pagination && (
-        <Pagination
-          currentPage={currentPage}
-          totalPages={pagination.totalPages}
-          onPageChange={onPageChange}
-        />
-      )}
+      {/* Pagination is rendered by parent (UsersList) */}
 
       {/* User Detail Modal */}
       <UserDetailModal 
