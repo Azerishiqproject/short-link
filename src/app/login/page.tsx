@@ -9,7 +9,6 @@ import { useEffect, useMemo, useRef, useState, type ChangeEvent, type FormEvent 
 import { useAppDispatch, useAppSelector } from "@/store";
 import { loginThunk } from "@/store/slices/authSlice";
 import { useRouter } from "next/navigation";
-import ReCAPTCHA from "react-google-recaptcha";
 import { verifyRecaptchaThunk } from "@/store/slices/linksSlice";
 
 export default function Login() {
@@ -19,7 +18,6 @@ export default function Login() {
   const recaptchaRef = useRef<any>(null);
   const [siteKey, setSiteKey] = useState<string>("");
   const [captchaError, setCaptchaError] = useState<string | null>(null);
-  const [captchaVerified, setCaptchaVerified] = useState(false);
 
   const [formData, setFormData] = useState({
     email: "",
@@ -30,29 +28,49 @@ export default function Login() {
   const handleSubmit = async (e: FormEvent<HTMLFormElement>) => {
     e.preventDefault();
     setCaptchaError(null);
-    // Require captcha only if site key is configured
-    if (siteKey && !captchaVerified) {
-      setCaptchaError("Lütfen reCAPTCHA doğrulamasını tamamlayın.");
-      return;
+    // Enterprise execute flow
+    if (siteKey) {
+      try {
+        // Ensure script is loaded
+        if (!(window as any).grecaptcha) {
+          const script = document.createElement("script");
+          script.src = `https://www.google.com/recaptcha/enterprise.js?render=${encodeURIComponent(siteKey)}`;
+          script.async = true;
+          document.head.appendChild(script);
+          await new Promise((resolve) => {
+            script.onload = resolve as any;
+            // small timeout safeguard
+            setTimeout(resolve, 1500);
+          });
+        }
+        const token: string = await new Promise((resolve, reject) => {
+          try {
+            (window as any).grecaptcha.enterprise.ready(async () => {
+              try {
+                const t = await (window as any).grecaptcha.enterprise.execute(siteKey, { action: "LOGIN" });
+                resolve(t);
+              } catch (err) {
+                reject(err);
+              }
+            });
+          } catch (err) {
+            reject(err);
+          }
+        });
+        const verifyRes: any = await dispatch<any>(verifyRecaptchaThunk({ token }));
+        if (verifyRes.meta.requestStatus !== "fulfilled") {
+          setCaptchaError("Doğrulama başarısız. Lütfen tekrar deneyin.");
+          return;
+        }
+      } catch (_) {
+        setCaptchaError("Doğrulama başarısız. Lütfen tekrar deneyin.");
+        return;
+      }
     }
     dispatch(loginThunk({ email: formData.email, password: formData.password, rememberMe: formData.rememberMe }));
   };
 
-  const handleCaptchaChange = async (token: string | null) => {
-    if (!token) {
-      setCaptchaVerified(false);
-      return;
-    }
-    setCaptchaError(null);
-    const res: any = await dispatch<any>(verifyRecaptchaThunk({ token }));
-    if (res.meta.requestStatus === "fulfilled") {
-      setCaptchaVerified(true);
-    } else {
-      setCaptchaVerified(false);
-      setCaptchaError("Doğrulama başarısız. Lütfen tekrar deneyin.");
-      recaptchaRef.current?.reset();
-    }
-  };
+  // no-op: enterprise execute akışı kullanılıyor
 
   useEffect(() => {
     if (status === "succeeded" && user) {
@@ -178,20 +196,7 @@ export default function Login() {
               <Button type="submit" size="lg" className="w-full" disabled={status === "loading"}>
                 {status === "loading" ? "Giriş yapılıyor..." : "Giriş Yap"}
               </Button>
-          {siteKey && (
-            <div className="space-y-2">
-              <div className="flex justify-center">
-                <ReCAPTCHA
-                  ref={recaptchaRef as any}
-                  sitekey={siteKey}
-                  onChange={handleCaptchaChange}
-                  theme="light"
-                  onExpired={() => recaptchaRef.current?.reset()}
-                />
-              </div>
               {captchaError && <div className="text-xs text-red-500 text-center">{captchaError}</div>}
-            </div>
-          )}
               {error && (
                 <div className="p-3 bg-red-50 dark:bg-red-950/30 border border-red-200 dark:border-red-800/50 rounded-lg">
                   <p className="text-red-600 dark:text-red-400 text-sm">
