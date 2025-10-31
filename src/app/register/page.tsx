@@ -5,15 +5,21 @@ import { Button } from "@/components/ui/Button";
 import { BlurSpot } from "@/components/ui/BlurSpot";
 import { Card } from "@/components/ui/Card";
 import Link from "next/link";
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { useAppDispatch, useAppSelector } from "@/store";
 import { registerThunk, verifyEmailThunk, resendCodeThunk } from "@/store/slices/authSlice";
 import { useRouter } from "next/navigation";
+import ReCAPTCHA from "react-google-recaptcha";
+import { verifyRecaptchaThunk } from "@/store/slices/linksSlice";
 
 export default function Register() {
   const dispatch = useAppDispatch();
   const { status, error, user, verificationId } = useAppSelector((s) => s.auth);
   const router = useRouter();
+  const recaptchaRef = useRef<any>(null);
+  const [siteKey, setSiteKey] = useState<string>("");
+  const [captchaError, setCaptchaError] = useState<string | null>(null);
+  const [captchaVerified, setCaptchaVerified] = useState(false);
   const [formData, setFormData] = useState({
     firstName: "",
     lastName: "",
@@ -31,7 +37,7 @@ export default function Register() {
   const [code, setCode] = useState("");
   const [resentNotice, setResentNotice] = useState<string>("");
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     
     // Validation
@@ -81,6 +87,11 @@ export default function Register() {
     setErrors(newErrors);
     
     if (Object.keys(newErrors).length === 0) {
+      setCaptchaError(null);
+      if (siteKey && !captchaVerified) {
+        setCaptchaError("Lütfen reCAPTCHA doğrulamasını tamamlayın.");
+        return;
+      }
       dispatch(registerThunk({
         email: formData.email,
         password: formData.password,
@@ -89,6 +100,22 @@ export default function Register() {
       })).then((res:any)=>{
         if (!res.error) setStep("verify");
       });
+    }
+  };
+
+  const handleCaptchaChange = async (token: string | null) => {
+    if (!token) {
+      setCaptchaVerified(false);
+      return;
+    }
+    setCaptchaError(null);
+    const res: any = await dispatch<any>(verifyRecaptchaThunk({ token }));
+    if (res.meta.requestStatus === "fulfilled") {
+      setCaptchaVerified(true);
+    } else {
+      setCaptchaVerified(false);
+      setCaptchaError("Doğrulama başarısız. Lütfen tekrar deneyin.");
+      recaptchaRef.current?.reset();
     }
   };
 
@@ -130,6 +157,19 @@ export default function Register() {
       }));
     }
   };
+
+  useEffect(() => {
+    // Fetch site key from server API (no NEXT_PUBLIC usage)
+    (async () => {
+      try {
+        const res = await fetch("/api/recaptcha-sitekey", { cache: "no-store" });
+        const data = await res.json();
+        if (res.ok && data?.siteKey) {
+          setSiteKey(String(data.siteKey));
+        }
+      } catch {}
+    })();
+  }, []);
 
   return (
     <div className="relative min-h-screen">
@@ -425,6 +465,20 @@ export default function Register() {
               <Button type="submit" size="lg" className="w-full">
                 {status === "loading" ? "Hesap oluşturuluyor..." : "Hesap Oluştur"}
               </Button>
+              {siteKey && (
+                <div className="space-y-2">
+                  <div className="flex justify-center">
+                    <ReCAPTCHA
+                      ref={recaptchaRef as any}
+                      sitekey={siteKey}
+                      onChange={handleCaptchaChange}
+                      theme="light"
+                      onExpired={() => recaptchaRef.current?.reset()}
+                    />
+                  </div>
+                  {captchaError && <div className="text-xs text-red-500 text-center">{captchaError}</div>}
+                </div>
+              )}
               {error && (
                 <div className="p-3 bg-red-50 dark:bg-red-950/30 border border-red-200 dark:border-red-800/50 rounded-lg">
                   <p className="text-red-600 dark:text-red-400 text-sm">

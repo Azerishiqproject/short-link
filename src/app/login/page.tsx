@@ -5,15 +5,21 @@ import { Button } from "@/components/ui/Button";
 import { BlurSpot } from "@/components/ui/BlurSpot";
 import { Card } from "@/components/ui/Card";
 import Link from "next/link";
-import { useEffect, useState, type ChangeEvent, type FormEvent } from "react";
+import { useEffect, useMemo, useRef, useState, type ChangeEvent, type FormEvent } from "react";
 import { useAppDispatch, useAppSelector } from "@/store";
 import { loginThunk } from "@/store/slices/authSlice";
 import { useRouter } from "next/navigation";
+import ReCAPTCHA from "react-google-recaptcha";
+import { verifyRecaptchaThunk } from "@/store/slices/linksSlice";
 
 export default function Login() {
   const dispatch = useAppDispatch();
   const { status, error, token, hydrated, user } = useAppSelector((s) => s.auth);
   const router = useRouter();
+  const recaptchaRef = useRef<any>(null);
+  const [siteKey, setSiteKey] = useState<string>("");
+  const [captchaError, setCaptchaError] = useState<string | null>(null);
+  const [captchaVerified, setCaptchaVerified] = useState(false);
 
   const [formData, setFormData] = useState({
     email: "",
@@ -21,9 +27,31 @@ export default function Login() {
     rememberMe: false,
   });
 
-  const handleSubmit = (e: FormEvent<HTMLFormElement>) => {
+  const handleSubmit = async (e: FormEvent<HTMLFormElement>) => {
     e.preventDefault();
+    setCaptchaError(null);
+    // Require captcha only if site key is configured
+    if (siteKey && !captchaVerified) {
+      setCaptchaError("Lütfen reCAPTCHA doğrulamasını tamamlayın.");
+      return;
+    }
     dispatch(loginThunk({ email: formData.email, password: formData.password, rememberMe: formData.rememberMe }));
+  };
+
+  const handleCaptchaChange = async (token: string | null) => {
+    if (!token) {
+      setCaptchaVerified(false);
+      return;
+    }
+    setCaptchaError(null);
+    const res: any = await dispatch<any>(verifyRecaptchaThunk({ token }));
+    if (res.meta.requestStatus === "fulfilled") {
+      setCaptchaVerified(true);
+    } else {
+      setCaptchaVerified(false);
+      setCaptchaError("Doğrulama başarısız. Lütfen tekrar deneyin.");
+      recaptchaRef.current?.reset();
+    }
   };
 
   useEffect(() => {
@@ -61,6 +89,19 @@ export default function Login() {
       [name]: type === "checkbox" ? checked : value,
     }));
   };
+
+  useEffect(() => {
+    // Fetch site key from server API (no NEXT_PUBLIC usage)
+    (async () => {
+      try {
+        const res = await fetch("/api/recaptcha-sitekey", { cache: "no-store" });
+        const data = await res.json();
+        if (res.ok && data?.siteKey) {
+          setSiteKey(String(data.siteKey));
+        }
+      } catch {}
+    })();
+  }, []);
 
   return (
     <div className="relative min-h-screen">
@@ -137,6 +178,20 @@ export default function Login() {
               <Button type="submit" size="lg" className="w-full" disabled={status === "loading"}>
                 {status === "loading" ? "Giriş yapılıyor..." : "Giriş Yap"}
               </Button>
+          {siteKey && (
+            <div className="space-y-2">
+              <div className="flex justify-center">
+                <ReCAPTCHA
+                  ref={recaptchaRef as any}
+                  sitekey={siteKey}
+                  onChange={handleCaptchaChange}
+                  theme="light"
+                  onExpired={() => recaptchaRef.current?.reset()}
+                />
+              </div>
+              {captchaError && <div className="text-xs text-red-500 text-center">{captchaError}</div>}
+            </div>
+          )}
               {error && (
                 <div className="p-3 bg-red-50 dark:bg-red-950/30 border border-red-200 dark:border-red-800/50 rounded-lg">
                   <p className="text-red-600 dark:text-red-400 text-sm">
